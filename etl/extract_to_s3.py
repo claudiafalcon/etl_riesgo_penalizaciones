@@ -3,7 +3,7 @@ import os
 import json
 import boto3
 import pymongo
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 def get_blacklist(collection):
     try:
