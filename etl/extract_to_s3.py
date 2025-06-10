@@ -3,7 +3,28 @@ import os
 import json
 import boto3
 import pymongo
+import time
+import logging
 from datetime import datetime, timedelta, timezone
+
+LOG_GROUP = "etl/riesgo-penalizaciones"
+LOG_STREAM = f"run-{datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d-%H%M%S')}"
+logs_client = boto3.client("logs")
+
+def log_to_cloudwatch(message):
+    try:
+        logs_client.create_log_stream(LogGroupName=LOG_GROUP, LogStreamName=LOG_STREAM)
+    except logs_client.exceptions.ResourceAlreadyExistsException:
+        pass
+
+    timestamp = int(time.time() * 1000)
+    logs_client.put_log_events(
+        logGroupName=LOG_GROUP,
+        logStreamName=LOG_STREAM,
+        logEvents=[{"timestamp": timestamp, "message": message}]
+    )
+
+
 
 def get_blacklist(collection):
     try:
@@ -26,6 +47,7 @@ def sanitize_document(doc, blacklist):
     return doc
 
 def extract_and_upload(date_str, collection, mongo_uri, bucket_name):
+    start_time = time.time()
     client = pymongo.MongoClient(mongo_uri)
 
     try:
@@ -70,8 +92,12 @@ def extract_and_upload(date_str, collection, mongo_uri, bucket_name):
     s3.put_object(Bucket=bucket_name, Key=key, Body=content.encode("utf-8"))
 
     print(f"✅ Uploaded {len(docs)} docs to {key}")
+    end_time = time.time()
+    elapsed_time = round(end_time - start_time,2)
+    log_to_cloudwatch(f"✅ Uploaded {len(docs)} docs to {key} in {elapsed_time} seconds.")
 
 def main():
+
     parser = argparse.ArgumentParser(description="Extract one collection from MongoDB and upload to S3.")
     parser.add_argument("--date", required=True, help="Extraction date in format YYYY-MM-DD")
     parser.add_argument("--collection", required=True, choices=["transactionresponse", "sale", "seller"], help="Collection to extract")
