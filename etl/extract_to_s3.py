@@ -23,6 +23,14 @@ def sanitize_document(doc, blacklist):
 
 def extract_and_upload(date_str, collection, mongo_uri, bucket_name):
     client = pymongo.MongoClient(mongo_uri)
+
+    try:
+        client = pymongo.MongoClient(mongo_uri)
+        client.server_info()  # Will throw an exception if cannot connect
+        print("✅ Connected to MongoDB.")
+    except Exception as e:
+        print("❌ MongoDB connection failed:", e)
+    return
     db = client["EtominTransactions"]
     s3 = boto3.client("s3")
 
@@ -38,6 +46,9 @@ def extract_and_upload(date_str, collection, mongo_uri, bucket_name):
             "$lt": next_day
         }
     })
+
+    docs = list(cursor)
+    print(f"📄 Found {len(docs)} documents in '{collection}'")
 
     docs = [sanitize_document(doc, blacklist) for doc in cursor]
     content = "\n".join(json.dumps(doc, default=str) for doc in docs)
