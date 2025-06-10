@@ -31,6 +31,13 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
         - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
 
+  EC2ETLInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      InstanceProfileName: EC2_ETL_RiskProfile
+      Roles:
+        - !Ref EC2ETLExecutionRole
+
 Outputs:
   S3BucketName:
     Description: Nombre del bucket de datos
@@ -43,3 +50,7 @@ Outputs:
   EC2RoleName:
     Description: Rol IAM que puede usar EC2
     Value: !Ref EC2ETLExecutionRole
+
+  InstanceProfileName:
+    Description: Perfil de instancia para EC2
+    Value: !Ref EC2ETLInstanceProfile
