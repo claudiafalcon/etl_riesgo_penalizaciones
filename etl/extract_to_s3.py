@@ -18,7 +18,11 @@ def sanitize_document(doc, blacklist):
         d = doc
         for k in keys[:-1]:
             d = d.get(k, {})
-        d.pop(keys[-1], None)
+            if not isinstance(d, dict):
+                d = {}
+                break  # termina la cadena si ya no es un dict
+        if isinstance(d, dict):
+            d.pop(keys[-1], None)
     return doc
 
 def extract_and_upload(date_str, collection, mongo_uri, bucket_name):
