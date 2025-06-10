@@ -58,7 +58,7 @@ def extract_and_upload(date_str, collection, mongo_uri, bucket_name):
     docs = list(cursor)
     print(f"📄 Found {len(docs)} documents in '{collection}'")
 
-    docs = [sanitize_document(doc, blacklist) for doc in cursor]
+    docs = [sanitize_document(doc, blacklist) for doc in docs]
     content = "\n".join(json.dumps(doc, default=str) for doc in docs)
 
     prefix = target_date.strftime("day=%d-%m-%Y")
