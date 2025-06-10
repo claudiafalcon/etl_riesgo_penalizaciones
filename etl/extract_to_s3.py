@@ -37,13 +37,21 @@ def extract_and_upload(date_str, collection, mongo_uri, bucket_name):
     target_date = datetime.strptime(date_str, "%Y-%m-%d")
     next_day = target_date + timedelta(days=1)
 
+
+    start_ms = int(target_date.replace(tzinfo=timezone.utc).timestamp() * 1000)
+    end_ms = int(next_day.replace(tzinfo=timezone.utc).timestamp() * 1000)
+
+
+
     print(f"📦 Processing collection: {collection} for {date_str}")
+    print(f"⏱ Timestamp range: {start_ms} to {end_ms}")
+
     blacklist = get_blacklist(collection)
 
     cursor = db[collection].find({
         "createdAt": {
-            "$gte": target_date,
-            "$lt": next_day
+            "$gte": start_ms,
+            "$lt": end_ms
         }
     })
 
