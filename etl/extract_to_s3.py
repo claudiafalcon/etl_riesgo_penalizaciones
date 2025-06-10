@@ -13,7 +13,7 @@ logs_client = boto3.client("logs", region_name = "us-east-1")
 
 def log_to_cloudwatch(message):
     try:
-        logs_client.create_log_stream(LogGroupName=LOG_GROUP, LogStreamName=LOG_STREAM)
+        logs_client.create_log_stream(logGroupName=LOG_GROUP, logStreamName=LOG_STREAM)
     except logs_client.exceptions.ResourceAlreadyExistsException:
         pass
 
