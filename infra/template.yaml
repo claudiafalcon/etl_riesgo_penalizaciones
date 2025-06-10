@@ -1,41 +1,45 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: Infraestructura para ETL de riesgo y penalizaciones
+Description: Infraestructura para ETL de riesgo de penalizaciones desde MongoDB
 
 Resources:
-  DataBucket:
+
+  ETLRiskDataBucket:
     Type: AWS::S3::Bucket
     Properties:
       BucketName: etl-riesgo-penalizaciones-data
+      VersioningConfiguration:
+        Status: Enabled
 
-  ETLLogGroup:
+  ETLRiskLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: /etl/riesgo-penalizaciones
-      RetentionInDays: 7
+      RetentionInDays: 14
 
-  ETLExecutionRole:
+  EC2ETLExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: ETLExecutionRole
+      RoleName: EC2_ETL_RiskRole
       AssumeRolePolicyDocument:
-        Version: "2012-10-17"
+        Version: '2012-10-17'
         Statement:
           - Effect: Allow
             Principal:
-              Service: [ec2.amazonaws.com]
+              Service: ec2.amazonaws.com
             Action: sts:AssumeRole
-      Policies:
-        - PolicyName: ETLS3Access
-          PolicyDocument:
-            Version: "2012-10-17"
-            Statement:
-              - Effect: Allow
-                Action:
-                  - s3:PutObject
-                  - s3:GetObject
-                Resource: "arn:aws:s3:::etl-riesgo-penalizaciones-data/*"
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                Resource: "*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/CloudWatchLogsFullAccess
+
+Outputs:
+  S3BucketName:
+    Description: Nombre del bucket de datos
+    Value: !Ref ETLRiskDataBucket
+
+  LogGroupName:
+    Description: Grupo de logs para seguimiento
+    Value: !Ref ETLRiskLogGroup
+
+  EC2RoleName:
+    Description: Rol IAM que puede usar EC2
+    Value: !Ref EC2ETLExecutionRole
