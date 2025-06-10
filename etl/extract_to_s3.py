@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 
 LOG_GROUP = "etl/riesgo-penalizaciones"
 LOG_STREAM = f"run-{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H%M%S')}"
-logs_client = boto3.client("logs")
+logs_client = boto3.client("logs", region_name = "us-east-1")
 
 def log_to_cloudwatch(message):
     try:
