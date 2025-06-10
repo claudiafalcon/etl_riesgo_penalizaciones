@@ -30,7 +30,7 @@ def extract_and_upload(date_str, collection, mongo_uri, bucket_name):
         print("✅ Connected to MongoDB.")
     except Exception as e:
         print("❌ MongoDB connection failed:", e)
-    return
+        return
     db = client["EtominTransactions"]
     s3 = boto3.client("s3")
 
