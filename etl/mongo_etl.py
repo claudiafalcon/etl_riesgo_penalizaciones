@@ -36,7 +36,7 @@ class MongoETLExtractor:
             for key, value in doc.items():
                 if isinstance(value, ObjectId):
                     doc[key] = str(value)
-                elif isinstance(value, datetime.datetime):
+                elif isinstance(value, datetime):
                     doc[key] = value.isoformat()
                 elif isinstance(value, dict):
                     # Conversión recursiva si hay subdocumentos
