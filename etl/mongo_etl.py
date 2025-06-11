@@ -4,11 +4,14 @@ import boto3
 import pymongo
 from datetime import datetime, timedelta,timezone
 from configparser import ConfigParser
+from io import BytesIO
+import pandas as pd
 
 class MongoETLExtractor:
-    def __init__(self, mongo_uri, bucket_name):
+    def __init__(self, mongo_uri, bucket_name, output_format="parquet"):
         self.mongo_uri = mongo_uri
         self.bucket_name = bucket_name
+        self.output_format = output_format.lower()
 
         try:
             self.client = pymongo.MongoClient(self.mongo_uri)
@@ -76,13 +79,23 @@ class MongoETLExtractor:
         print(f"📄 Found {len(docs)} documents in '{collection}'")
 
         sanitized_docs = [self.sanitize_document(doc, blacklist) for doc in docs]
-        content = "\n".join(json.dumps(doc, default=str) for doc in sanitized_docs)
-
         prefix = target_date.strftime("day=%d-%m-%Y")
-        key = f"{collection}/{prefix}/data.json"
-        print(f"✅ Bucket {self.bucket_name} Prefix {prefix} docs to {key}")
+        
+        print(f"✅ Bucket {self.bucket_name} Prefix {prefix}")
+        if self.output_format in ("json","both"):
+            content = "\n".join(json.dumps(doc, default=str) for doc in sanitized_docs)
+            json_key = f"{collection}/{prefix}/data.json"
+            print(f"✅ Bucket {self.bucket_name} Prefix {prefix} docs to {json_key}")
+            self.s3.put_object(Bucket=self.bucket_name, Key=json_key, Body=content.encode("utf-8"))
+            print(f"✅ Uploaded {len(sanitized_docs)} JSON docs to {json_key}")
 
-        self.s3.put_object(Bucket=self.bucket_name, Key=key, Body=content.encode("utf-8"))
 
-        print(f"✅ Uploaded {len(sanitized_docs)} docs to {key}")
+
+        if self.output_format in ("parquet", "both"):
+            df = pd.json_normalize(sanitized_docs)
+            buffer = BytesIO()
+            df.to_parquet(buffer, index=False)
+            parquet_key = f"{collection}/{prefix}/data.parquet"
+            self.s3.put_object(Bucket=self.bucket_name, Key=parquet_key, Body=buffer.getvalue())
+            print(f"✅ Uploaded {len(sanitized_docs)} Parquet docs to {parquet_key}")
         print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds")

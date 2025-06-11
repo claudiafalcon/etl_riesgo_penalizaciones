@@ -11,6 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 MONGO_URI = os.environ.get("MONGO_URI")
 BUCKET_NAME = os.environ.get("S3_BUCKET", "etl-riesgo-penalizaciones-data")
 LOG_GROUP = os.environ.get("LOG_GROUP_NAME", "/etl/riesgo-penalizaciones")
+OUTPUT_FORMAT = os.environ.get("OUTPUT_FORMAT", "parquet")
 LOG_STREAM = f"bulk_loader_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
 MAX_THREADS = 3
 MEMORY_THRESHOLD = 70  # %
@@ -45,7 +46,7 @@ def put_log(message, timestamp=None):
     sequence_token = response.get("nextSequenceToken")
 
 def run_etl_for_day_and_collection(date_str, collection):
-    etl = MongoETLExtractor(MONGO_URI, BUCKET_NAME)
+    etl = MongoETLExtractor(MONGO_URI, BUCKET_NAME,OUTPUT_FORMAT)
     etl.extract_and_upload(collection, date_str)
 
 if __name__ == "__main__":
