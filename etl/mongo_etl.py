@@ -29,19 +29,26 @@ class MongoETLExtractor:
     
 
 
+    def convert_types(self, doc):
     
-    def convert_object_ids(self, documents):
-        """Convierte ObjectId y datetime en strings serializables para Parquet."""
-        for doc in documents:
-            for key, value in doc.items():
-                if isinstance(value, ObjectId):
-                    doc[key] = str(value)
-                elif isinstance(value, datetime):
-                    doc[key] = value.isoformat()
-                elif isinstance(value, dict):
-                    # Conversión recursiva si hay subdocumentos
-                    doc[key] = self.convert_object_ids([value])[0]
-        return documents
+
+        def convert_value(value):
+            if isinstance(value, ObjectId):
+                return str(value)
+            elif isinstance(value, datetime):
+                return value.isoformat()
+            elif isinstance(value, dict):
+                return {k: convert_value(v) for k, v in value.items()}
+            elif isinstance(value, list):
+                return [convert_value(v) for v in value]
+            elif isinstance(value, (int, float, bool)):
+                return value
+            else:
+                return str(value)
+
+        return {k: convert_value(v) for k, v in doc.items()}
+    
+ 
 
         
     def get_blacklist(self, collection):
@@ -112,7 +119,7 @@ class MongoETLExtractor:
 
 
         if self.output_format in ("parquet", "both"):
-            converted_docs = self.convert_object_ids(sanitized_docs)
+            converted_docs = [self.convert_types(doc) for doc in sanitized_docs]
             df = pd.json_normalize(converted_docs)
             buffer = BytesIO()
             df.to_parquet(buffer, index=False)
