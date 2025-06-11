@@ -36,7 +36,7 @@ def put_log(message, timestamp=None):
 
 def run_etl_for_day_and_collection(date_str, collection):
     etl = MongoETLExtractor(MONGO_URI, BUCKET_NAME)
-    etl.run(collection, date_str)
+    etl.extract_and_upload(collection, date_str)
 
 if __name__ == "__main__":
     from datetime import timedelta
