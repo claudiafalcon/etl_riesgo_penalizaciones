@@ -1,6 +1,8 @@
 import os
 import time
 import boto3
+import psutil
+import logging
 from datetime import datetime
 from mongo_etl import MongoETLExtractor
 from concurrent.futures import ThreadPoolExecutor
@@ -10,9 +12,17 @@ MONGO_URI = os.environ.get("MONGO_URI")
 BUCKET_NAME = os.environ.get("S3_BUCKET", "etl-riesgo-penalizaciones-data")
 LOG_GROUP = os.environ.get("LOG_GROUP_NAME", "/etl/riesgo-penalizaciones")
 LOG_STREAM = f"bulk_loader_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
-
+MAX_THREADS = 3
+MEMORY_THRESHOLD = 70  # %
 # Prepare CloudWatch Logs
 logs_client = boto3.client("logs", region_name=os.environ.get("AWS_REGION", "us-east-1"))
+
+def log_memory_usage():
+    memory = psutil.virtual_memory()
+    logging.info(f"📊 Memory Used: {memory.used / (1024 ** 2):.2f} MB / {memory.total / (1024 ** 2):.2f} MB")
+
+def is_memory_safe(threshold=70):
+    return psutil.virtual_memory().percent < threshold
 
 def init_log_stream():
     try:
@@ -69,7 +79,12 @@ if __name__ == "__main__":
         while current <= end_date:
             date_str = current.strftime("%Y-%m-%d")
             for collection in collections:
+                while not  is_memory_safe(MEMORY_THRESHOLD):
+                    print("⚠️ High memory usage — waiting...")
+                    time.sleep(5)
+                print(f"🚀 Launching thread for {collection} - {date_str}")
                 futures.append(executor.submit(run_etl_for_day_and_collection, date_str, collection))
+                log_memory_usage()
             current += timedelta(days=1)
 
         for future in futures:
