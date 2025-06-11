@@ -6,6 +6,9 @@ from datetime import datetime, timedelta,timezone
 from configparser import ConfigParser
 from io import BytesIO
 import pandas as pd
+from bson import ObjectId
+
+
 
 class MongoETLExtractor:
     def __init__(self, mongo_uri, bucket_name, output_format="parquet"):
@@ -23,7 +26,24 @@ class MongoETLExtractor:
              
         self.db = self.client["EtominTransactions"]
         self.s3 = boto3.client("s3")
+    
 
+
+    
+    def convert_object_ids(self, documents):
+        """Convierte ObjectId y datetime en strings serializables para Parquet."""
+        for doc in documents:
+            for key, value in doc.items():
+                if isinstance(value, ObjectId):
+                    doc[key] = str(value)
+                elif isinstance(value, datetime.datetime):
+                    doc[key] = value.isoformat()
+                elif isinstance(value, dict):
+                    # Conversión recursiva si hay subdocumentos
+                    doc[key] = self.convert_object_ids([value])[0]
+        return documents
+
+        
     def get_blacklist(self, collection):
         try:
             with open(f'config/{collection}_blacklist.txt') as f:
@@ -92,7 +112,8 @@ class MongoETLExtractor:
 
 
         if self.output_format in ("parquet", "both"):
-            df = pd.json_normalize(sanitized_docs)
+            converted_docs = self.convert_object_ids(sanitized_docs)
+            df = pd.json_normalize(converted_docs)
             buffer = BytesIO()
             df.to_parquet(buffer, index=False)
             parquet_key = f"{collection}/{prefix}/data.parquet"

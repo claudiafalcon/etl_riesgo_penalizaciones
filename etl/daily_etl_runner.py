@@ -27,12 +27,13 @@ def main():
 
     mongo_uri = os.environ.get("MONGO_URI")
     bucket_name = os.environ.get("S3_BUCKET", "etl-riesgo-penalizaciones-data")
+    output_format = os.environ.get("OUTPUT_FORMAT", "parquet")
 
     if not mongo_uri:
         raise ValueError("⚠️ MONGO_URI environment variable not set")
  
  
-    extractor = MongoETLExtractor(mongo_uri, bucket_name)
+    extractor = MongoETLExtractor(mongo_uri, bucket_name,output_format)
     start_time = time.time()
     extractor.extract_and_upload(args.collection, args.date)
     end_time = time.time()
