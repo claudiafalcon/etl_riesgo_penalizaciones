@@ -19,7 +19,7 @@ logs_client = boto3.client("logs", region_name=os.environ.get("AWS_REGION", "us-
 
 def log_memory_usage():
     memory = psutil.virtual_memory()
-    logging.info(f"📊 Memory Used: {memory.used / (1024 ** 2):.2f} MB / {memory.total / (1024 ** 2):.2f} MB")
+    put_log(f"📊 Memory Used: {memory.used / (1024 ** 2):.2f} MB / {memory.total / (1024 ** 2):.2f} MB")
 
 def is_memory_safe(threshold=70):
     return psutil.virtual_memory().percent < threshold
