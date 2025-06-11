@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 # Read environment variables
 MONGO_URI = os.environ.get("MONGO_URI")
-BUCKET_NAME = os.environ.get("BUCKET_NAME")
+BUCKET_NAME = os.environ.get("S3_BUCKET", "etl-riesgo-penalizaciones-data")
 LOG_GROUP = os.environ.get("LOG_GROUP_NAME", "/etl/riesgo-penalizaciones")
 LOG_STREAM = f"bulk_loader_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
 
