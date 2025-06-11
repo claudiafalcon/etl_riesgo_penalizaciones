@@ -80,6 +80,8 @@ class MongoETLExtractor:
 
         prefix = target_date.strftime("day=%d-%m-%Y")
         key = f"{collection}/{prefix}/data.json"
+        print(f"✅ Prefix {prefix} docs to {key}")
+
         self.s3.put_object(Bucket=self.bucket_name, Key=key, Body=content.encode("utf-8"))
 
         print(f"✅ Uploaded {len(sanitized_docs)} docs to {key}")
