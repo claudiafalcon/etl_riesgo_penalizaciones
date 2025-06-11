@@ -28,7 +28,7 @@ class MongoETLExtractor:
         except FileNotFoundError:
             return set()
 
-    def sanitize_document(doc, blacklist):
+    def sanitize_document(self,doc, blacklist):
         for field in blacklist:
             keys = field.split(".")
             d = doc
