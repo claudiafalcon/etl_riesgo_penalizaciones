@@ -56,10 +56,21 @@ class MongoETLExtractor:
         blacklist = self.get_blacklist(collection)
 
         cursor = self.db[collection].find({
-            "createdAt": {
-                "$gte": start_ms,
-                "$lt": end_ms
-            }
+            "$or": [
+                {
+                    "updatedAt": {
+                        "$gte": start_ms,
+                        "$lt": end_ms
+                    }
+                },
+                {
+                    "updatedAt": { "$exists": False },
+                    "createdAt": {
+                        "$gte": start_ms,
+                        "$lt": end_ms
+                    }
+                }
+            ]
         })
         docs = list(cursor)
         print(f"📄 Found {len(docs)} documents in '{collection}'")
