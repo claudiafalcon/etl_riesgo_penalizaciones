@@ -47,7 +47,7 @@ class MongoETLExtractor:
                 return str(value)
         converted = {k: convert_value(v) for k, v in doc.items()}
             # 🔧 Ajuste específico para responseCode
-        for field in ["responseCode", "transactionId", "reasonCode","folio","ReciboId"]:
+        for field in ["responseCode", "transactionId", "reasonCode","folio","ReciboId","orderId"]:
             if field in converted:
                 converted[field] = str(converted[field])
         for field in ["amount"]:
@@ -128,10 +128,26 @@ class MongoETLExtractor:
 
 
         if self.output_format in ("parquet", "both"):
-            converted_docs = [self.convert_types(doc) for doc in sanitized_docs]
-            df = pd.json_normalize(converted_docs)
-            buffer = BytesIO()
-            df.to_parquet(buffer, index=False)
+            try:
+                converted_docs = [self.convert_types(doc) for doc in sanitized_docs]
+                df = pd.json_normalize(converted_docs)
+                buffer = BytesIO()
+                df.to_parquet(buffer, index=False)
+            except Exception as e:
+                print("❌ Error during conversion to Parquet:", e)
+
+                for i, doc in enumerate(sanitized_docs):
+                    try:
+                        converted_doc = self.convert_types(doc)
+                        single_df = pd.json_normalize([converted_doc])
+                        _ = BytesIO()
+                        single_df.to_parquet(_, index=False)
+                    except Exception as doc_error:
+                        print(f"\n⚠️ Problem in document index {i}: {doc_error}")
+                        print("🧾 Problematic document:")
+                        print(json.dumps(doc, indent=2, default=str))
+                        break  # o remueve esto si quieres revisar todos
+                raise
             parquet_key = f"{collection}/{prefix}/data.parquet"
             self.s3.put_object(Bucket=self.bucket_name, Key=parquet_key, Body=buffer.getvalue())
             print(f"✅ Uploaded {len(sanitized_docs)} Parquet docs to {parquet_key}")
