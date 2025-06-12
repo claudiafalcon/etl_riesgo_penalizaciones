@@ -17,7 +17,7 @@ lock = threading.Lock()
 
 def run_one_day(date_str, collection):
     with semaphore:
-        cmd = ["python3", "/etl/bulk_one_day.py", date_str, collection]
+        cmd = ["python3", "./etl/bulk_one_day.py", date_str, collection]
         print(f"🚀 Launching: {cmd}")
         try:
             subprocess.run(cmd, check=True)
