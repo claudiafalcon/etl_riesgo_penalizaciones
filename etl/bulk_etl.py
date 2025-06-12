@@ -74,6 +74,15 @@ def run_etl_thread(date_str, collection):
             if collection in heavy_collections:
                 heavy_running.clear()
 
+def clean_finished_threads():
+    global active_threads
+    with thread_lock:
+        before = len(active_threads)
+        active_threads = [t for t in active_threads if t.is_alive()]
+        after = len(active_threads)
+        if before != after:
+            print(f"🧹 Cleaned up {before - after} finished threads.")
+
 
 def wait_for_resources(collection, date_str, max_wait_seconds=300):
     waited = 0
@@ -98,9 +107,6 @@ def wait_for_resources(collection, date_str, max_wait_seconds=300):
     print(msg)
     put_log(msg)
 
-def clean_finished_threads():
-    global active_threads
-    active_threads = [t for t in active_threads if t.is_alive()]
 
 if __name__ == "__main__":
     import sys
