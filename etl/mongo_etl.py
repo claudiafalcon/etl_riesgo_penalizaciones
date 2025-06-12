@@ -123,8 +123,8 @@ class MongoETLExtractor:
                 if col in df.columns:
                     df[col] = df[col].astype(str)
 
-            columns_as_float = ["amount"]
-            for col in columns_as_float:
+            columns_as_numeric = ["amount","currency"]
+            for col in columns_as_numeric:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors="coerce")
             #Export to Parquet
