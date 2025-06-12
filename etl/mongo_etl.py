@@ -7,6 +7,7 @@ from configparser import ConfigParser
 from io import BytesIO
 import pandas as pd
 from bson import ObjectId
+import gc
 
 
 
@@ -134,3 +135,12 @@ class MongoETLExtractor:
             self.s3.put_object(Bucket=self.bucket_name, Key=parquet_key, Body=buffer.getvalue())
             print(f"✅ Uploaded {len(sanitized_docs)} Parquet docs to {parquet_key}")
         print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds for {collection}/{prefix}")
+        del df
+        del converted_docs
+        del sanitized_docs
+        del content
+        del buffer
+        gc.collect()
+        mem = psutil.virtual_memory()
+        print(f"🧠 Mem usage after cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
+
