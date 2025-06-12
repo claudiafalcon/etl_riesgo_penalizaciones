@@ -98,7 +98,7 @@ class MongoETLExtractor:
             ]
         })
         docs = list(cursor)
-        print(f"📄 Found {len(docs)} documents in '{collection}'")
+        print(f"📄 Found {len(docs)} documents in '{collection}' for {date_str}")
 
         sanitized_docs = [self.sanitize_document(doc, blacklist) for doc in docs]
         prefix = target_date.strftime("day=%d-%m-%Y")
@@ -133,4 +133,4 @@ class MongoETLExtractor:
             parquet_key = f"{collection}/{prefix}/data.parquet"
             self.s3.put_object(Bucket=self.bucket_name, Key=parquet_key, Body=buffer.getvalue())
             print(f"✅ Uploaded {len(sanitized_docs)} Parquet docs to {parquet_key}")
-        print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds")
+        print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds for {collection}/{prefix}")
