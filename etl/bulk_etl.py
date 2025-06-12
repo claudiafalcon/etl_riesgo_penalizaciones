@@ -23,6 +23,7 @@ def log_memory_usage():
     put_log(f"📊 Memory Used: {memory.used / (1024 ** 2):.2f} MB / {memory.total / (1024 ** 2):.2f} MB")
 
 def is_memory_safe(threshold=70):
+    log_memory_usage()
     return psutil.virtual_memory().percent < threshold
 
 def init_log_stream():
