@@ -30,8 +30,6 @@ class MongoETLExtractor:
 
 
     def convert_types(self, doc):
-    
-
         def convert_value(value):
             if isinstance(value, ObjectId):
                 return str(value)
@@ -41,22 +39,10 @@ class MongoETLExtractor:
                 return {k: convert_value(v) for k, v in value.items()}
             elif isinstance(value, list):
                 return [convert_value(v) for v in value]
-            elif isinstance(value, (int, float, bool)):
-                return value
             else:
-                return str(value)
-        converted = {k: convert_value(v) for k, v in doc.items()}
-            # 🔧 Ajuste específico para responseCode
-        for field in ["responseCode", "transactionId", "reasonCode","folio","ReciboId","orderId","data.status"]:
-            if field in converted:
-                converted[field] = str(converted[field])
-        for field in ["amount"]:
-             if field in doc:
-                try:
-                    converted['amount'] = float(converted['amount'])
-                except (ValueError, TypeError):
-                    pass  # deja como string si falla
-        return converted
+                return value  # dejar en su tipo original
+
+        return {k: convert_value(v) for k, v in doc.items()}
 
 
         
@@ -131,6 +117,17 @@ class MongoETLExtractor:
       
             converted_docs = [self.convert_types(doc) for doc in sanitized_docs]
             df = pd.json_normalize(converted_docs)
+            # Conversión rápida y controlada en Pandas
+            columns_as_string = ["responseCode", "transactionId", "reasonCode", "folio", "ReciboId", "orderId", "data.status"]
+            for col in columns_as_string:
+                if col in df.columns:
+                    df[col] = df[col].astype(str)
+
+            columns_as_float = ["amount"]
+            for col in columns_as_float:
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
+            #Export to Parquet
             buffer = BytesIO()
             df.to_parquet(buffer, index=False)
             parquet_key = f"{collection}/{prefix}/data.parquet"
