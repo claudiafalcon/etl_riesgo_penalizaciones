@@ -207,10 +207,12 @@ class MongoETLExtractor:
         process = psutil.Process()
         mem_info = process.memory_info()
         print(f"🧠 RSS: {mem_info.rss / (1024 ** 2):.2f} MB, VMS: {mem_info.vms / (1024 ** 2):.2f} MB)")
+        self.client.close()
+        del self.s3
         gc.collect()
         debug_large_objects()
         mem = psutil.virtual_memory()
         print(f"🧠 Mem usage after cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
         log_large_objects(min_size_mb=0.1)
-        self.client.close()
+       
 
