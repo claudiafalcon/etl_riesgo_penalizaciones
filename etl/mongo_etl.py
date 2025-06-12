@@ -51,7 +51,7 @@ class MongoETLExtractor:
             if field in converted:
                 converted[field] = str(converted[field])
         for field in ["amount"]:
-             if 'field' in doc:
+             if field in doc:
                 try:
                     converted['amount'] = float(converted['amount'])
                 except (ValueError, TypeError):
