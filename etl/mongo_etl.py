@@ -134,30 +134,20 @@ class MongoETLExtractor:
                 buffer = BytesIO()
                 df.to_parquet(buffer, index=False)
             except Exception as e:
-                print("❌ Error during conversion to Parquet:", e)
+                print("❌ Error saving full DataFrame to Parquet:", e)
+                print("🔍 Trying to identify problematic row...")
 
-                for i, doc in enumerate(sanitized_docs):
+                for idx in range(len(df)):
                     try:
-                        converted_doc = self.convert_types(doc)
-                        single_df = pd.json_normalize([converted_doc])
-                        _ = BytesIO()
-                        single_df.to_parquet(_, index=False)
-                    except Exception as e:
-                        print("❌ Error saving full DataFrame to Parquet:", e)
-                        print("🔍 Trying to identify problematic row...")
-
-                        for idx in range(len(df)):
-                            try:
-                                temp_df = df.iloc[[idx]]  # mantener como DataFrame, no Series
-                                temp_buf = BytesIO()
-                                temp_df.to_parquet(temp_buf, index=False)
-                            except Exception as row_error:
-                                print(f"\n⚠️ Error at row {idx}: {row_error}")
-                                print("🧾 Problematic row:")
-                                print(df.iloc[idx].to_json(indent=2, date_format='iso'))
-                                break  # o continúa si quieres revisar todos
-                        raise
-               
+                        temp_df = df.iloc[[idx]]  # mantener como DataFrame, no Series
+                        temp_buf = BytesIO()
+                        temp_df.to_parquet(temp_buf, index=False)
+                    except Exception as row_error:
+                        print(f"\n⚠️ Error at row {idx}: {row_error}")
+                        print("🧾 Problematic row:")
+                        print(df.iloc[idx].to_json(indent=2, date_format='iso'))
+                        break  # o continúa si quieres revisar todos
+                raise
             parquet_key = f"{collection}/{prefix}/data.parquet"
             self.s3.put_object(Bucket=self.bucket_name, Key=parquet_key, Body=buffer.getvalue())
             print(f"✅ Uploaded {len(sanitized_docs)} Parquet docs to {parquet_key}")
