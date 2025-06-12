@@ -47,7 +47,7 @@ class MongoETLExtractor:
                 return str(value)
         converted = {k: convert_value(v) for k, v in doc.items()}
             # 🔧 Ajuste específico para responseCode
-        for field in ["responseCode", "transactionId", "reasonCode","folio"]:
+        for field in ["responseCode", "transactionId", "reasonCode","folio","ReciboId"]:
             if field in converted:
                 converted[field] = str(converted[field])
         for field in ["amount"]:
