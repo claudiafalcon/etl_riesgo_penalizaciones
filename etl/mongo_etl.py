@@ -119,100 +119,111 @@ class MongoETLExtractor:
     
     def extract_and_upload(self, collection, date_str):
         from time import time
-        start = time()
+        try:
+            start = time()
 
-        target_date = datetime.strptime(date_str, "%Y-%m-%d")
-        next_day = target_date + timedelta(days=1)
-        start_ms = int(target_date.replace(tzinfo=timezone.utc).timestamp() * 1000)
-        end_ms = int(next_day.replace(tzinfo=timezone.utc).timestamp() * 1000)
+            target_date = datetime.strptime(date_str, "%Y-%m-%d")
+            next_day = target_date + timedelta(days=1)
+            start_ms = int(target_date.replace(tzinfo=timezone.utc).timestamp() * 1000)
+            end_ms = int(next_day.replace(tzinfo=timezone.utc).timestamp() * 1000)
 
 
-        print(f"📦 Processing collection: {collection} for {date_str}")
-        print(f"⏱ Timestamp range: {start_ms} to {end_ms}")
-        blacklist = self.get_blacklist(collection)
+            print(f"📦 Processing collection: {collection} for {date_str}")
+            print(f"⏱ Timestamp range: {start_ms} to {end_ms}")
+            blacklist = self.get_blacklist(collection)
 
-        cursor = self.db[collection].find({
-            "$or": [
-                {
-                    "updatedAt": {
-                        "$gte": start_ms,
-                        "$lt": end_ms
+            cursor = self.db[collection].find({
+                "$or": [
+                    {
+                        "updatedAt": {
+                            "$gte": start_ms,
+                            "$lt": end_ms
+                        }
+                    },
+                    {
+                        "updatedAt": { "$exists": False },
+                        "createdAt": {
+                            "$gte": start_ms,
+                            "$lt": end_ms
+                        }
                     }
-                },
-                {
-                    "updatedAt": { "$exists": False },
-                    "createdAt": {
-                        "$gte": start_ms,
-                        "$lt": end_ms
-                    }
-                }
-            ]
-        })
-        batch = []
-        batch_size = 1000
-        doc_count = 0
+                ]
+            })
+            batch = []
+            batch_size = 1000
+            doc_count = 0
 
 
-        batch_index = 0  # 🆕 contador para el nombre del archivo
+            batch_index = 0  # 🆕 contador para el nombre del archivo
 
-        for doc in cursor:
-            batch.append(doc)
-            if len(batch) >= batch_size:
+            for doc in cursor:
+                batch.append(doc)
+                if len(batch) >= batch_size:
+                    self._process_batch(batch, collection, target_date, blacklist, batch_index)
+                    doc_count += len(batch)
+                    batch.clear()
+                    batch_index += 1  # 🆙 siguiente batch
+
+            # Procesar los que queden
+            if batch:
                 self._process_batch(batch, collection, target_date, blacklist, batch_index)
                 doc_count += len(batch)
-                batch.clear()
-                batch_index += 1  # 🆙 siguiente batch
 
-        # Procesar los que queden
-        if batch:
-            self._process_batch(batch, collection, target_date, blacklist, batch_index)
-            doc_count += len(batch)
+            print(f"📄 Processed {doc_count} documents in '{collection}' for {date_str}")
+            cursor.close()
+            del cursor
 
-        print(f"📄 Processed {doc_count} documents in '{collection}' for {date_str}")
-        cursor.close()
-        del cursor
+            def log_large_objects(min_size_mb=0.1):
+                print("🔍 Buscando objetos grandes en memoria...")
+                count = 0
+                for obj in gc.get_objects():
+                    try:
+                        size_mb = sys.getsizeof(obj) / (1024 ** 2)
+                        if size_mb > min_size_mb:
+                            print(f"🧱 Tipo: {type(obj)}, Tamaño: {size_mb:.2f} MB")
+                            count += 1
+                            if count >= 10:  # límite para evitar spam
+                                break
+                    except Exception:
+                        pass
+            import gc
+            import sys
 
-        def log_large_objects(min_size_mb=0.1):
-            print("🔍 Buscando objetos grandes en memoria...")
-            count = 0
-            for obj in gc.get_objects():
-                try:
-                    size_mb = sys.getsizeof(obj) / (1024 ** 2)
-                    if size_mb > min_size_mb:
-                        print(f"🧱 Tipo: {type(obj)}, Tamaño: {size_mb:.2f} MB")
-                        count += 1
-                        if count >= 10:  # límite para evitar spam
-                            break
-                except Exception:
-                    pass
-        import gc
-        import sys
+            def debug_large_objects(threshold_mb=5):
+                print("🔍 Escaneando objetos grandes en memoria:")
+                for obj in gc.get_objects():
+                    try:
+                        size = sys.getsizeof(obj)
+                        if size > threshold_mb * 1024 * 1024:
+                            print(f"🧱 Tipo: {type(obj)} — Tamaño: {size / (1024**2):.2f} MB")
+                    except Exception:
+                        pass
 
-        def debug_large_objects(threshold_mb=5):
-            print("🔍 Escaneando objetos grandes en memoria:")
-            for obj in gc.get_objects():
-                try:
-                    size = sys.getsizeof(obj)
-                    if size > threshold_mb * 1024 * 1024:
-                        print(f"🧱 Tipo: {type(obj)} — Tamaño: {size / (1024**2):.2f} MB")
-                except Exception:
-                    pass
+            print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds for {collection}/{target_date.strftime('day=%d-%m-%Y')}")
+            log_large_objects(min_size_mb=1)
+            mem = psutil.virtual_memory()
+        
+            print(f"⏱️ Mem usage before cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
 
-        print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds for {collection}/{target_date.strftime('day=%d-%m-%Y')}")
-        log_large_objects(min_size_mb=1)
-        mem = psutil.virtual_memory()
-       
-        print(f"⏱️ Mem usage before cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
-
-        process = psutil.Process()
-        mem_info = process.memory_info()
-        print(f"🧠 RSS: {mem_info.rss / (1024 ** 2):.2f} MB, VMS: {mem_info.vms / (1024 ** 2):.2f} MB)")
-        self.client.close()
-        del self.s3
-        gc.collect()
-        debug_large_objects()
-        mem = psutil.virtual_memory()
-        print(f"🧠 Mem usage after cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
-        log_large_objects(min_size_mb=0.1)
-       
+            process = psutil.Process()
+            mem_info = process.memory_info()
+            print(f"🧠 RSS: {mem_info.rss / (1024 ** 2):.2f} MB, VMS: {mem_info.vms / (1024 ** 2):.2f} MB)")
+            self.client.close()
+            del self.s3
+            gc.collect()
+            debug_large_objects()
+            mem = psutil.virtual_memory()
+            print(f"🧠 Mem usage after cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
+            log_large_objects(min_size_mb=0.1)
+        finally: 
+            if hasattr(self, "client"):
+                self.client.close()
+            if hasattr(self, "s3"):
+                del self.s3
+            gc.collect()
+            debug_large_objects()
+            mem = psutil.virtual_memory()
+            print(f"🧠 Mem usage after cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
+            log_large_objects(min_size_mb=0.1)
+        
 
