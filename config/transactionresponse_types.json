@@ -1,0 +1,4 @@
+{
+  "force_string": ["responseCode", "transactionId", "reasonCode", "folio", "ReciboId", "orderId", "data.status","data.gwErrorCode"],
+  "force_number": ["amount","currency"]
+}

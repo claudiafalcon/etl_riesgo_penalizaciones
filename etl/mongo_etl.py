@@ -29,7 +29,13 @@ class MongoETLExtractor:
         self.s3 = boto3.client("s3")
     
 
-
+    def get_type_overrides(self, collection):
+        try:
+            with open(f'config/{collection}_types.json') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            return {"force_string": [], "force_number": []}
+        
     def convert_types(self, doc):
         def convert_value(value):
             if isinstance(value, ObjectId):
@@ -119,13 +125,14 @@ class MongoETLExtractor:
             converted_docs = [self.convert_types(doc) for doc in sanitized_docs]
             df = pd.json_normalize(converted_docs)
             # Conversión rápida y controlada en Pandas
-            columns_as_string = ["responseCode", "transactionId", "reasonCode", "folio", "ReciboId", "orderId", "data.status"]
-            for col in columns_as_string:
+  
+            type_config = self.get_type_overrides(collection)
+
+            for col in type_config.get("force_string"):
                 if col in df.columns:
                     df[col] = df[col].astype(str)
 
-            columns_as_numeric = ["amount","currency"]
-            for col in columns_as_numeric:
+            for col in type_config.get("force_number"):
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors="coerce")
             #Export to Parquet
