@@ -57,13 +57,17 @@ def is_memory_safe(threshold):
 
 active_threads = []
 thread_lock = threading.Lock()
-heavy_running = threading.Event()
 
+
+
+heavy_running_count = 0  # reemplaza heavy_running
 
 def run_etl_thread(date_str, collection):
+    global heavy_running_count
+    is_heavy = collection in heavy_collections
     with thread_lock:
-        if collection in heavy_collections:
-            heavy_running.set()
+        if is_heavy:
+            heavy_running_count += 1
     try:
         etl = MongoETLExtractor(MONGO_URI, BUCKET_NAME, OUTPUT_FORMAT)
         etl.extract_and_upload(collection, date_str)
@@ -71,8 +75,8 @@ def run_etl_thread(date_str, collection):
         put_log(f"❌ Error in {collection} for {date_str}: {e}")
     finally:
         with thread_lock:
-            if collection in heavy_collections:
-                heavy_running.clear()
+            if is_heavy:
+                heavy_running_count -= 1
 
 def clean_finished_threads():
     global active_threads
@@ -88,20 +92,25 @@ def wait_for_resources(collection, date_str, max_wait_seconds=300):
     waited = 0
     interval = 5
     while waited < max_wait_seconds:
-
         clean_finished_threads()
         with thread_lock:
-            if len(active_threads) < MAX_THREADS and is_memory_safe(MEMORY_THRESHOLD):
-                if not heavy_running.is_set() or collection not in heavy_collections:
-                    return
+            safe_memory = is_memory_safe(MEMORY_THRESHOLD)
+            too_many_threads = len(active_threads) >= MAX_THREADS
+            heavy_conflict = heavy_running_count > 0 and collection in heavy_collections
+
+            if safe_memory and not too_many_threads and not heavy_conflict:
+                return
+
         print(f"⚠️ Waiting for resources... ({collection} on {date_str}) [{waited}s elapsed]")
+        print(f"🧮 Active threads: {len(active_threads)}, Heavy running: {heavy_running_count}")
         time.sleep(interval)
         waited += interval
-         # 🔍 Cada 30 segundos, imprime el estado de los hilos activos
+
         if waited % 30 == 0:
             print("🧵 Estado de los hilos activos:")
-            for t in active_threads:
-                print(f"   - Thread {t.name} alive: {t.is_alive()}")
+            with thread_lock:
+                for t in active_threads:
+                    print(f"   - Thread {t.name} alive: {t.is_alive()}")
 
     msg = f"⏱️ Timeout waiting for resources — skipping {collection} on {date_str}"
     print(msg)
