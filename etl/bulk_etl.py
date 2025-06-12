@@ -75,15 +75,32 @@ def run_etl_thread(date_str, collection):
                 heavy_running.clear()
 
 
-def wait_for_resources():
-    while True:
+def wait_for_resources(collection, date_str, max_wait_seconds=300):
+    waited = 0
+    interval = 5
+    while waited < max_wait_seconds:
+
+        clean_finished_threads()
         with thread_lock:
             if len(active_threads) < MAX_THREADS and is_memory_safe(MEMORY_THRESHOLD):
-                if not heavy_running.is_set():
+                if not heavy_running.is_set() or collection not in heavy_collections:
                     return
-        print("⚠️ Waiting for resources...")
-        time.sleep(5)
+        print(f"⚠️ Waiting for resources... ({collection} on {date_str}) [{waited}s elapsed]")
+        time.sleep(interval)
+        waited += interval
+         # 🔍 Cada 30 segundos, imprime el estado de los hilos activos
+        if waited % 30 == 0:
+            print("🧵 Estado de los hilos activos:")
+            for t in active_threads:
+                print(f"   - Thread {t.name} alive: {t.is_alive()}")
 
+    msg = f"⏱️ Timeout waiting for resources — skipping {collection} on {date_str}"
+    print(msg)
+    put_log(msg)
+
+def clean_finished_threads():
+    global active_threads
+    active_threads = [t for t in active_threads if t.is_alive()]
 
 if __name__ == "__main__":
     import sys
@@ -102,7 +119,7 @@ if __name__ == "__main__":
     while current <= end_date:
         date_str = current.strftime("%Y-%m-%d")
         for collection in collections:
-            wait_for_resources()
+            wait_for_resources(collection, date_str)
             t = threading.Thread(target=run_etl_thread, args=(date_str, collection))
             t.start()
             active_threads.append(t)
