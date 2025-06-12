@@ -45,10 +45,13 @@ class MongoETLExtractor:
                 return value
             else:
                 return str(value)
+        converted = {k: convert_value(v) for k, v in doc.items()}
+            # 🔧 Ajuste específico para responseCode
+        if "responseCode" in converted:
+            converted["responseCode"] = str(converted["responseCode"])
 
-        return {k: convert_value(v) for k, v in doc.items()}
-    
- 
+        return converted
+
 
         
     def get_blacklist(self, collection):
