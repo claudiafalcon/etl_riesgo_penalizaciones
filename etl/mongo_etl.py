@@ -185,16 +185,30 @@ class MongoETLExtractor:
                             break
                 except Exception:
                     pass
+        import gc
+        import sys
+
+        def debug_large_objects(threshold_mb=5):
+            print("🔍 Escaneando objetos grandes en memoria:")
+            for obj in gc.get_objects():
+                try:
+                    size = sys.getsizeof(obj)
+                    if size > threshold_mb * 1024 * 1024:
+                        print(f"🧱 Tipo: {type(obj)} — Tamaño: {size / (1024**2):.2f} MB")
+                except Exception:
+                    pass
 
         print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds for {collection}/{target_date.strftime('day=%d-%m-%Y')}")
         log_large_objects(min_size_mb=1)
         mem = psutil.virtual_memory()
+       
         print(f"⏱️ Mem usage before cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
 
         process = psutil.Process()
         mem_info = process.memory_info()
         print(f"🧠 RSS: {mem_info.rss / (1024 ** 2):.2f} MB, VMS: {mem_info.vms / (1024 ** 2):.2f} MB)")
         gc.collect()
+        debug_large_objects()
         mem = psutil.virtual_memory()
         print(f"🧠 Mem usage after cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
         log_large_objects(min_size_mb=0.1)
