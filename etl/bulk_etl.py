@@ -23,6 +23,14 @@ logs_client = boto3.client("logs", region_name=os.environ.get("AWS_REGION", "us-
 sequence_token = None
 
 
+
+def print_memory_status():
+    mem = psutil.virtual_memory()
+    print(f"📊 Total: {mem.total / (1024**2):.2f} MB")
+    print(f"📉 Used: {mem.used / (1024**2):.2f} MB ({mem.percent}%)")
+    print(f"💤 Available: {mem.available / (1024**2):.2f} MB")
+    print(f"🧠 Free: {mem.free / (1024**2):.2f} MB")
+
 def init_log_stream():
     try:
         logs_client.create_log_stream(logGroupName=LOG_GROUP, logStreamName=LOG_STREAM)
@@ -97,6 +105,7 @@ def wait_for_resources(collection, date_str, max_wait_seconds=300):
             safe_memory = is_memory_safe(MEMORY_THRESHOLD)
             too_many_threads = len(active_threads) >= MAX_THREADS
             heavy_conflict = heavy_running_count > 0 and collection in heavy_collections
+            print_memory_status()
 
             if safe_memory and not too_many_threads and not heavy_conflict:
                 return
