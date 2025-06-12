@@ -30,6 +30,48 @@ class MongoETLExtractor:
         self.s3 = boto3.client("s3")
     
 
+    def _process_batch(self, docs, collection, target_date, blacklist):
+        print(f"✅ Bucket {self.bucket_name} Prefix {prefix}")
+        sanitized_docs = [self.sanitize_document(doc, blacklist) for doc in docs]
+    
+
+        prefix = target_date.strftime("day=%d-%m-%Y")
+
+        if self.output_format in ("json", "both"):
+            content = "\n".join(json.dumps(doc, default=str) for doc in converted_docs)
+            json_key = f"{collection}/{prefix}/data.json"
+            self.s3.put_object(Bucket=self.bucket_name, Key=json_key, Body=content.encode("utf-8"))
+            print(f"✅ Uploaded {len(sanitized_docs)} JSON docs to {json_key}")
+            del content
+
+        if self.output_format in ("parquet", "both"):
+            converted_docs = [self.convert_types(doc) for doc in sanitized_docs]
+            df = pd.json_normalize(converted_docs)
+
+            type_config = self.get_type_overrides(collection)
+            for col in type_config.get("force_string", []):
+                if col in df.columns:
+                    df[col] = df[col].astype(str)
+            for col in type_config.get("force_number", []):
+                if col in df.columns:
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
+
+            buffer = BytesIO()
+            df.to_parquet(buffer, index=False)
+            parquet_key = f"{collection}/{prefix}/data.parquet"
+            self.s3.put_object(Bucket=self.bucket_name, Key=parquet_key, Body=buffer.getvalue())
+            print(f"✅ Uploaded {len(sanitized_docs)} Parquet docs to {parquet_key}")
+            buffer.close()
+            del buffer
+
+            del df
+
+        del sanitized_docs
+        del converted_docs
+        del docs
+        gc.collect()
+
+
     def get_type_overrides(self, collection):
         try:
             with open(f'config/{collection}_types.json') as f:
@@ -105,55 +147,41 @@ class MongoETLExtractor:
                 }
             ]
         })
-        docs = list(cursor)
-        print(f"📄 Found {len(docs)} documents in '{collection}' for {date_str}")
+        batch = []
+        batch_size = 1000
+        doc_count = 0
 
-        sanitized_docs = [self.sanitize_document(doc, blacklist) for doc in docs]
-        prefix = target_date.strftime("day=%d-%m-%Y")
-        
-        print(f"✅ Bucket {self.bucket_name} Prefix {prefix}")
-        if self.output_format in ("json","both"):
-            content = "\n".join(json.dumps(doc, default=str) for doc in sanitized_docs)
-            json_key = f"{collection}/{prefix}/data.json"
-            print(f"✅ Bucket {self.bucket_name} Prefix {prefix} docs to {json_key}")
-            self.s3.put_object(Bucket=self.bucket_name, Key=json_key, Body=content.encode("utf-8"))
-            print(f"✅ Uploaded {len(sanitized_docs)} JSON docs to {json_key}")
-            del content
+        for doc in cursor:
+            batch.append(doc)
+            if len(batch) >= batch_size:
+                self._process_batch(batch, collection, target_date, blacklist)
+                doc_count += len(batch)
+                batch.clear()  # más seguro que batch = []
 
+        if batch:
+            self._process_batch(batch, collection, target_date, blacklist)
+            doc_count += len(batch)
 
+        print(f"📄 Processed {doc_count} documents in '{collection}' for {date_str}")
+        cursor.close()
+        del cursor
 
-        if self.output_format in ("parquet", "both"):
-      
-            converted_docs = [self.convert_types(doc) for doc in sanitized_docs]
-            df = pd.json_normalize(converted_docs)
-            # Conversión rápida y controlada en Pandas
-  
-            type_config = self.get_type_overrides(collection)
+        def log_large_objects(min_size_mb=1):
+            print("🔍 Buscando objetos grandes en memoria...")
+            count = 0
+            for obj in gc.get_objects():
+                try:
+                    size_mb = sys.getsizeof(obj) / (1024 ** 2)
+                    if size_mb > min_size_mb:
+                        print(f"🧱 Tipo: {type(obj)}, Tamaño: {size_mb:.2f} MB")
+                        count += 1
+                        if count >= 10:  # límite para evitar spam
+                            break
+                except Exception:
+                    pass
 
-            for col in type_config.get("force_string"):
-                if col in df.columns:
-                    df[col] = df[col].astype(str)
-
-            for col in type_config.get("force_number"):
-                if col in df.columns:
-                    df[col] = pd.to_numeric(df[col], errors="coerce")
-            #Export to Parquet
-            buffer = BytesIO()
-            df.to_parquet(buffer, index=False)
-            parquet_key = f"{collection}/{prefix}/data.parquet"
-            self.s3.put_object(Bucket=self.bucket_name, Key=parquet_key, Body=buffer.getvalue())
-            print(f"✅ Uploaded {len(sanitized_docs)} Parquet docs to {parquet_key}")
-            buffer.close()
-            del buffer
-        print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds for {collection}/{prefix}")
-        mem = psutil.virtual_memory()
-        print(f"⏱️ Mem usage before cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
-        del df
-        del converted_docs
-        del sanitized_docs
-        del docs
-       
-        
+        print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds for {collection}/{target_date.strftime('day=%d-%m-%Y')}")
+        log_large_objects(min_size_mb=1)
         gc.collect()
         mem = psutil.virtual_memory()
         print(f"🧠 Mem usage after cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
