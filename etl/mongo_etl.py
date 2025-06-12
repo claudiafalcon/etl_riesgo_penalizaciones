@@ -31,11 +31,12 @@ class MongoETLExtractor:
     
 
     def _process_batch(self, docs, collection, target_date, blacklist):
-        print(f"✅ Bucket {self.bucket_name} Prefix {prefix}")
+        
         sanitized_docs = [self.sanitize_document(doc, blacklist) for doc in docs]
     
 
         prefix = target_date.strftime("day=%d-%m-%Y")
+        print(f"✅ Bucket {self.bucket_name} Prefix {prefix}")
 
         if self.output_format in ("json", "both"):
             content = "\n".join(json.dumps(doc, default=str) for doc in converted_docs)
