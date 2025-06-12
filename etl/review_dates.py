@@ -1,36 +1,30 @@
 import boto3
-from collections import defaultdict
 import re
+from collections import defaultdict
+from datetime import datetime
 
-s3 = boto3.client("s3")
 bucket_name = "etl-riesgo-penalizaciones-data"
 
-pattern = re.compile(r"([^/]+)/day=(\d{2}-\d{2}-\d{4})/data\.(json|parquet)$")
+s3 = boto3.client("s3")
+paginator = s3.get_paginator("list_objects_v2")
+pages = paginator.paginate(Bucket=bucket_name)
+
+# Detecta archivos: data.json, data.parquet, data_part1.json, etc.
+pattern = re.compile(r"([^/]+)/day=(\d{2}-\d{2}-\d{4})/data(?:_part\d+)?\.(json|parquet)$")
+
 summary = defaultdict(lambda: defaultdict(lambda: {"json": 0, "parquet": 0}))
 
-continuation_token = None
-while True:
-    kwargs = {"Bucket": bucket_name}
-    if continuation_token:
-        kwargs["ContinuationToken"] = continuation_token
-
-    response = s3.list_objects_v2(**kwargs)
-
-    for obj in response.get("Contents", []):
+for page in pages:
+    for obj in page.get("Contents", []):
         key = obj["Key"]
         match = pattern.match(key)
         if match:
-            collection, date_str, ext = match.groups()
-            summary[collection][date_str][ext] += 1
+            collection, date_str, file_type = match.groups()
+            summary[collection][date_str][file_type] += 1
 
-    if response.get("IsTruncated"):
-        continuation_token = response["NextContinuationToken"]
-    else:
-        break
-
-# Mostrar resumen ordenado
-for collection in sorted(summary):
+# Imprime ordenado por fecha correctamente
+for collection in summary:
     print(f"\n📁 Collection: {collection}")
-    for date_str in sorted(summary[collection]):
+    for date_str in sorted(summary[collection], key=lambda d: datetime.strptime(d, "%d-%m-%Y")):
         counts = summary[collection][date_str]
-        print(f"  📅 {date_str}: JSON={counts['json']} | Parquet={counts['parquet']}")
+        print(f"  📅 {date_str} → JSON: {counts['json']}, Parquet: {counts['parquet']}")
