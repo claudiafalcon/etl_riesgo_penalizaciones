@@ -150,6 +150,7 @@ class MongoETLExtractor:
         del df
         del converted_docs
         del sanitized_docs
+        del docs
        
         
         gc.collect()
