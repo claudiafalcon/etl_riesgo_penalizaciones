@@ -6,6 +6,7 @@ import logging
 import threading
 from datetime import datetime, timedelta, timezone
 from mongo_etl import MongoETLExtractor
+import gc
 
 # Configuraciones
 MONGO_URI = os.environ.get("MONGO_URI")
@@ -152,6 +153,7 @@ if __name__ == "__main__":
 
     for t in active_threads:
         t.join()
+    gc.collect()
 
     elapsed = round(time.time() - start_ts, 2)
     put_log(f"✅ Bulk ETL completed in {elapsed} seconds")

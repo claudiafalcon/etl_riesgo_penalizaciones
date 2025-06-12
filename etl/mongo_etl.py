@@ -143,6 +143,7 @@ class MongoETLExtractor:
             parquet_key = f"{collection}/{prefix}/data.parquet"
             self.s3.put_object(Bucket=self.bucket_name, Key=parquet_key, Body=buffer.getvalue())
             print(f"✅ Uploaded {len(sanitized_docs)} Parquet docs to {parquet_key}")
+            buffer.close()
             del buffer
         print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds for {collection}/{prefix}")
         mem = psutil.virtual_memory()
