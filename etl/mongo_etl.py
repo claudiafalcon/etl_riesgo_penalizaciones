@@ -166,7 +166,7 @@ class MongoETLExtractor:
         cursor.close()
         del cursor
 
-        def log_large_objects(min_size_mb=1):
+        def log_large_objects(min_size_mb=0.1):
             print("🔍 Buscando objetos grandes en memoria...")
             count = 0
             for obj in gc.get_objects():
@@ -182,7 +182,15 @@ class MongoETLExtractor:
 
         print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds for {collection}/{target_date.strftime('day=%d-%m-%Y')}")
         log_large_objects(min_size_mb=1)
+        mem = psutil.virtual_memory()
+        print(f"⏱️ Mem usage before cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
+
+        process = psutil.Process()
+        mem_info = process.memory_info()
+        print(f"🧠 RSS: {mem_info.rss / (1024 ** 2):.2f} MB, VMS: {mem_info.vms / (1024 ** 2):.2f} MB)")
         gc.collect()
         mem = psutil.virtual_memory()
         print(f"🧠 Mem usage after cleanup: {mem.percent}% ({mem.used / (1024**2):.2f} MB)")
+        log_large_objects(min_size_mb=0.1)
+        self.client.close()
 
