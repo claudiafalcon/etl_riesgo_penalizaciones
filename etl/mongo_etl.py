@@ -30,19 +30,19 @@ class MongoETLExtractor:
         self.s3 = boto3.client("s3")
     
 
-    def _process_batch(self, docs, collection, target_date, blacklist):
+    def _process_batch(self, docs, collection, target_date, blacklist, batch_index):
         
         sanitized_docs = [self.sanitize_document(doc, blacklist) for doc in docs]
     
 
         prefix = target_date.strftime("day=%d-%m-%Y")
-        print(f"✅ Bucket {self.bucket_name} Prefix {prefix}")
+   
 
         if self.output_format in ("json", "both"):
             content = "\n".join(json.dumps(doc, default=str) for doc in converted_docs)
-            json_key = f"{collection}/{prefix}/data.json"
+            json_key = f"{collection}/{prefix}/data_part{batch_index + 1}.json"
             self.s3.put_object(Bucket=self.bucket_name, Key=json_key, Body=content.encode("utf-8"))
-            print(f"✅ Uploaded {len(sanitized_docs)} JSON docs to {json_key}")
+    
             del content
 
         if self.output_format in ("parquet", "both"):
@@ -59,9 +59,9 @@ class MongoETLExtractor:
 
             buffer = BytesIO()
             df.to_parquet(buffer, index=False)
-            parquet_key = f"{collection}/{prefix}/data.parquet"
+            parquet_key = f"{collection}/{prefix}/data_part{batch_index + 1}.parquet"
             self.s3.put_object(Bucket=self.bucket_name, Key=parquet_key, Body=buffer.getvalue())
-            print(f"✅ Uploaded {len(sanitized_docs)} Parquet docs to {parquet_key}")
+
             buffer.close()
             del buffer
 
@@ -152,15 +152,20 @@ class MongoETLExtractor:
         batch_size = 1000
         doc_count = 0
 
+
+        batch_index = 0  # 🆕 contador para el nombre del archivo
+
         for doc in cursor:
             batch.append(doc)
             if len(batch) >= batch_size:
-                self._process_batch(batch, collection, target_date, blacklist)
+                self._process_batch(batch, collection, target_date, blacklist, batch_index)
                 doc_count += len(batch)
-                batch.clear()  # más seguro que batch = []
+                batch.clear()
+                batch_index += 1  # 🆙 siguiente batch
 
+        # Procesar los que queden
         if batch:
-            self._process_batch(batch, collection, target_date, blacklist)
+            self._process_batch(batch, collection, target_date, blacklist, batch_index)
             doc_count += len(batch)
 
         print(f"📄 Processed {doc_count} documents in '{collection}' for {date_str}")
