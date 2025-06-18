@@ -22,7 +22,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Extract one collection from MongoDB and upload to S3.")
     parser.add_argument("--date", required=True, help="Extraction date in format YYYY-MM-DD")
-    parser.add_argument("--collection", required=True, choices=["transactionresponse", "sale", "seller"], help="Collection to extract")
+    parser.add_argument("--collection", required=True, choices=["transactionresponse", "sale", "seller","refund","chargeback"], help="Collection to extract")
     args = parser.parse_args()
 
     mongo_uri = os.environ.get("MONGO_URI")
