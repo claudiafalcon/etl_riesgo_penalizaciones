@@ -1,0 +1,4 @@
+{
+  "force_string": ["reference"],
+  "force_number": ["amount"]
+}

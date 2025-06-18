@@ -1,0 +1,4 @@
+{
+  "force_string": [ "transactionId", "reference"],
+  "force_number": ["amount"]
+}

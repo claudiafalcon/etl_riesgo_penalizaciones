@@ -2,27 +2,48 @@ import subprocess
 from datetime import datetime, timedelta
 import sys
 import time
+import argparse
 from multiprocessing import Pool
 import psutil
 
-# 👉 Argumentos: start_date, end_date, max_processes
-if len(sys.argv) < 4:
-    print("❗ Uso: python3 bulk_launcher.py <start_date> <end_date> <max_parallel>")
-    print("📅 Ejemplo: python3 bulk_launcher.py 2025-06-01 2025-06-10 2")
-    sys.exit(1)
+# Lista oficial de colecciones válidas
+colecciones_validas = ["transactionresponse", "sale", "seller", "chargeback", "refund"]
 
-start_date = datetime.strptime(sys.argv[1], "%Y-%m-%d")
-end_date = datetime.strptime(sys.argv[2], "%Y-%m-%d")
-max_parallel = int(sys.argv[3])
+# Argumentos posicionales y opcional
+parser = argparse.ArgumentParser(description="ETL launcher por lotes")
 
-collections = ["transactionresponse", "sale", "seller"]
+# Posicionales
+parser.add_argument("start_date", help="Fecha de inicio en formato YYYY-MM-DD")
+parser.add_argument("end_date", help="Fecha de fin en formato YYYY-MM-DD")
+parser.add_argument("max_parallel", type=int, help="Máximo número de procesos en paralelo")
+
+# Opcional
+parser.add_argument("--collections", nargs="+", help="Colecciones a procesar (si se omite, se procesan todas)")
+
+args = parser.parse_args()
+
+# Validación de colecciones si se especifican
+if args.collections:
+    invalid = [c for c in args.collections if c not in colecciones_validas]
+    if invalid:
+        print(f"❌ Colecciones no válidas: {invalid}")
+        print(f"✅ Colecciones válidas: {colecciones_validas}")
+        sys.exit(1)
+    colecciones_a_procesar = args.collections
+else:
+    colecciones_a_procesar = colecciones_validas
+
+start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
+end_date = datetime.strptime(args.end_date, "%Y-%m-%d")
+max_parallel = args.max_parall
+
 
 # Crear lista de tareas (combinación de fechas y colecciones)
 tasks = []
 current = start_date
 while current <= end_date:
     date_str = current.strftime("%Y-%m-%d")
-    for collection in collections:
+    for collection in colecciones_a_procesar:
         tasks.append((date_str, collection))
     current += timedelta(days=1)
 
