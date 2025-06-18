@@ -9,6 +9,7 @@ import pandas as pd
 from bson import ObjectId
 import gc
 import psutil
+import bson
 
 
 
@@ -198,6 +199,14 @@ class MongoETLExtractor:
             batch_index = 0  # 🆕 contador para el nombre del archivo
 
             for doc in cursor:
+                try:
+                    if len(bson.BSON.encode(doc)) > 16 * 1024 * 1024:
+                        print(f"🚨 Documento muy grande in {collection} for {date_str}, saltando: {doc.get("_id")}")
+                        continue
+                except Exception as e:
+                    print("❌ Error al revisar tamaño del documento:", e)
+                    continue
+
                 batch.append(doc)
                 if len(batch) >= batch_size:
                     self._process_batch(batch, collection, target_date, blacklist, batch_index)
