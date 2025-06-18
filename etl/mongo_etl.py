@@ -29,6 +29,22 @@ class MongoETLExtractor:
         self.db = self.client["EtominTransactions"]
         self.s3 = boto3.client("s3")
     
+    def _replace_placeholders(self,obj, start_ms, end_ms):
+        if isinstance(obj, dict):
+            return {
+                k: self._replace_placeholders(v, start_ms, end_ms)
+                for k, v in obj.items()
+            }
+        elif isinstance(obj, list):
+            return [self._replace_placeholders(i, start_ms, end_ms) for i in obj]
+        elif isinstance(obj, str):
+            if obj == "__start__":
+                return start_ms
+            elif obj == "__end__":
+                return end_ms
+        return obj
+
+
     def _get_filter(self, collection):
         try:
             with open(f'config/{collection}_filter.json') as f:
@@ -41,7 +57,7 @@ class MongoETLExtractor:
         if "filter" in filter_config:
             if any(k in filter_config for k in ["filter_from_reference", "reference_from", "reference_field"]):
                 raise ValueError(f"❌ Invalid fileter config for '{collection}': cannot mix 'filter' with reference-based fields")
-            query = json.loads(json.dumps(filter_config["filter"]).replace("__start__", str(start_ms)).replace("__end__", str(end_ms)))
+            query =  self._replace_placeholders(filter_config["filter"], start_ms, end_ms)
             return self.db[collection].find(query)
 
         elif "filter_from_reference" in filter_config:
@@ -49,7 +65,8 @@ class MongoETLExtractor:
             if not required_keys.issubset(filter_config):
                 raise ValueError(f"❌ Invalid config for '{collection}': missing 'reference_from' or 'reference_field'")
 
-            ref_query = json.loads(json.dumps(filter_config["filter_from_reference"]).replace("__start__", str(start_ms)).replace("__end__", str(end_ms)))
+            
+            ref_query = self._replace_placeholders(filter_config["filter_from_reference"], start_ms, end_ms)
             print(filter_config["reference_field"], ref_query)
             reference_ids = self.db[filter_config["reference_from"]].distinct(filter_config["reference_field"], ref_query)
 
