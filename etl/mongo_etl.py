@@ -198,11 +198,19 @@ class MongoETLExtractor:
 
             batch_index = 0  # 🆕 contador para el nombre del archivo
             print("que pasa")
-            for doc in cursor:
+            while True:
                 try:
-                    print(f'len doc {len(bson.BSON.encode(doc))}')
-                    if len(bson.BSON.encode(doc)) > 16 * 1024 * 1024:
-                        print(f"🚨 Documento muy grande in {collection} for {date_str}, saltando: {doc.get("_id")}")
+                    doc = next(cursor)
+                except StopIteration:
+                    break
+                except Exception as e:
+                    print("❌ Error al obtener documento del cursor:", e)
+                    continue
+
+                try:
+                    size = len(bson.BSON.encode(doc))
+                    if size > 16 * 1024 * 1024:
+                        print(f"🚨 Documento muy grande en {collection} para {date_str}, saltando: {doc.get('_id')}")
                         continue
                 except Exception as e:
                     print("❌ Error al revisar tamaño del documento:", e)
@@ -213,12 +221,7 @@ class MongoETLExtractor:
                     self._process_batch(batch, collection, target_date, blacklist, batch_index)
                     doc_count += len(batch)
                     batch.clear()
-                    batch_index += 1  # 🆙 siguiente batch
-
-            # Procesar los que queden
-            if batch:
-                self._process_batch(batch, collection, target_date, blacklist, batch_index)
-                doc_count += len(batch)
+                    batch_index += 1
 
             print(f"📄 Processed {doc_count} documents in '{collection}' for {date_str}")
             cursor.close()
