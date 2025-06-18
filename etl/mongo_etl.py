@@ -55,7 +55,7 @@ class MongoETLExtractor:
     def _paginated_cursor(self, collection, target_field, reference_ids, chunk_size=10000):
         for i in range(0, len(reference_ids), chunk_size):
             chunk = reference_ids[i:i + chunk_size]
-            print(f"🔄 Procesando chunk {i // chunk_size + 1} con {len(chunk)} elementos")
+            #print(f"🔄 Procesando chunk {i // chunk_size + 1} con {len(chunk)} elementos")
             for doc in self.db[collection].find({target_field: {"$in": chunk}}):
                 yield doc
             
