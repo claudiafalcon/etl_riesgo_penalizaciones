@@ -74,8 +74,11 @@ class MongoETLExtractor:
             if not reference_ids:
                 print(f"⚠️ No referenced IDs found for {collection}, skipping...")
                 return self.db[collection].find({"_id": {"$exists": False, "$eq": None}})
+            # Usa '_id' por defecto si no se especifica 'reference_target'
+            target_field = filter_config.get("reference_target", "_id")
+            print("target field", target_field)
 
-            return self.db[collection].find({"_id": {"$in": reference_ids}})
+            return self.db[collection].find({target_field: {"$in": reference_ids}})
 
     def _process_batch(self, docs, collection, target_date, blacklist, batch_index):
         

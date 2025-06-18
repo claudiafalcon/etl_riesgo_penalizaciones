@@ -1,6 +1,6 @@
 {
     "reference_from": "sale",
-    "reference_field": "sale",
+    "reference_field": "_id",
     "filter_from_reference": {
       "$or": [
         { "updatedAt": { "$gte": "__start__", "$lt": "__end__" } },
