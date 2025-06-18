@@ -69,14 +69,14 @@ class MongoETLExtractor:
             ref_query = self._replace_placeholders(filter_config["filter_from_reference"], start_ms, end_ms)
             print(filter_config["reference_field"], ref_query)
             reference_ids = self.db[filter_config["reference_from"]].distinct(filter_config["reference_field"], ref_query)
-            print("Reference IDs :: ", reference_ids[:5])
+        
 
             if not reference_ids:
                 print(f"⚠️ No referenced IDs found for {collection}, skipping...")
                 return self.db[collection].find({"_id": {"$exists": False, "$eq": None}})
             # Usa '_id' por defecto si no se especifica 'reference_target'
             target_field = filter_config.get("reference_target", "_id")
-            print("target field", target_field)
+   
 
             return self.db[collection].find({"sale": {"$in": reference_ids}})
 
