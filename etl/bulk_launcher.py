@@ -35,7 +35,7 @@ else:
 
 start_date = datetime.strptime(args.start_date, "%Y-%m-%d")
 end_date = datetime.strptime(args.end_date, "%Y-%m-%d")
-max_parallel = args.max_parall
+max_parallel = args.max_parallel
 
 
 # Crear lista de tareas (combinación de fechas y colecciones)
