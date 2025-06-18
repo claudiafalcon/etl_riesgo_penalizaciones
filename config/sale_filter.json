@@ -1,7 +1,5 @@
 {
-    "reference_from": "transactionresponse",
-    "reference_field": "sale",
-    "filter_from_reference": {
+    "filter": {
       "$or": [
         { "updatedAt": { "$gte": "__start__", "$lt": "__end__" } },
         {

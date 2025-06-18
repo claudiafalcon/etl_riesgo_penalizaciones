@@ -1,5 +1,5 @@
 {
-    "reference_from": "transactionresponse",
+    "reference_from": "sale",
     "reference_field": "sale",
     "filter_from_reference": {
       "$or": [
