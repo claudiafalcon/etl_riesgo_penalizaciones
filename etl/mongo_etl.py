@@ -54,10 +54,11 @@ class MongoETLExtractor:
         
     def _build_cursor_with_config(self, collection, start_ms, end_ms):
         filter_config = self._get_filter(collection)
+
         if "filter" in filter_config:
             if any(k in filter_config for k in ["filter_from_reference", "reference_from", "reference_field"]):
                 raise ValueError(f"❌ Invalid fileter config for '{collection}': cannot mix 'filter' with reference-based fields")
-            query =  self._replace_placeholders(filter_config["filter"], start_ms, end_ms)
+            query = self._replace_placeholders(filter_config["filter"], start_ms, end_ms)
             return self.db[collection].find(query)
 
         elif "filter_from_reference" in filter_config:
@@ -65,20 +66,26 @@ class MongoETLExtractor:
             if not required_keys.issubset(filter_config):
                 raise ValueError(f"❌ Invalid config for '{collection}': missing 'reference_from' or 'reference_field'")
 
-            
             ref_query = self._replace_placeholders(filter_config["filter_from_reference"], start_ms, end_ms)
             print(filter_config["reference_field"], ref_query)
-            reference_ids = self.db[filter_config["reference_from"]].distinct(filter_config["reference_field"], ref_query)
-        
+
+            # Usa aggregate en lugar de distinct para evitar errores de 16MB
+            reference_from = filter_config["reference_from"]
+            reference_field = f"${filter_config['reference_field']}"
+
+            pipeline = [
+                {"$match": ref_query},
+                {"$group": {"_id": reference_field}}
+            ]
+
+            reference_ids = [doc["_id"] for doc in self.db[reference_from].aggregate(pipeline)]
 
             if not reference_ids:
                 print(f"⚠️ No referenced IDs found for {collection}, skipping...")
                 return self.db[collection].find({"_id": {"$exists": False, "$eq": None}})
-            # Usa '_id' por defecto si no se especifica 'reference_target'
-            target_field = filter_config.get("reference_target", "_id")
-   
 
-            return self.db[collection].find({"sale": {"$in": reference_ids}})
+            target_field = filter_config.get("reference_target", "_id")
+            return self.db[collection].find({target_field: {"$in": reference_ids}})
 
     def _process_batch(self, docs, collection, target_date, blacklist, batch_index):
         
