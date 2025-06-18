@@ -50,11 +50,12 @@ class MongoETLExtractor:
                 raise ValueError(f"❌ Invalid config for '{collection}': missing 'reference_from' or 'reference_field'")
 
             ref_query = json.loads(json.dumps(filter_config["filter_from_reference"]).replace("__start__", str(start_ms)).replace("__end__", str(end_ms)))
+            print(filter_config["reference_field"], ref_query)
             reference_ids = self.db[filter_config["reference_from"]].distinct(filter_config["reference_field"], ref_query)
 
             if not reference_ids:
                 print(f"⚠️ No referenced IDs found for {collection}, skipping...")
-                return iter([])
+                return self.db[collection].find({"_id": {"$exists": False, "$eq": None}})
 
             return self.db[collection].find({"_id": {"$in": reference_ids}})
 
