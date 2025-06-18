@@ -52,7 +52,13 @@ class MongoETLExtractor:
                 return json.load(f)
         except FileNotFoundError:
             raise ValueError(f"❌ No filter config fi found for collection: {collection}")
-        
+    def _paginated_cursor(self, collection, target_field, reference_ids, chunk_size=10000):
+        for i in range(0, len(reference_ids), chunk_size):
+            chunk = reference_ids[i:i + chunk_size]
+            print(f"🔄 Procesando chunk {i // chunk_size + 1} con {len(chunk)} elementos")
+            for doc in self.db[collection].find({target_field: {"$in": chunk}}):
+                yield doc
+            
     def _build_cursor_with_config(self, collection, start_ms, end_ms):
         filter_config = self._get_filter(collection)
 
@@ -86,7 +92,7 @@ class MongoETLExtractor:
                 return self.db[collection].find({"_id": {"$exists": False, "$eq": None}})
 
             target_field = filter_config.get("reference_target", "_id")
-            return self.db[collection].find({target_field: {"$in": reference_ids}})
+            return self._paginated_cursor(collection, target_field, reference_ids)
 
     def _process_batch(self, docs, collection, target_date, blacklist, batch_index):
         
