@@ -200,6 +200,7 @@ class MongoETLExtractor:
 
             for doc in cursor:
                 try:
+                    print(f'len doc {len(bson.BSON.encode(doc))}')
                     if len(bson.BSON.encode(doc)) > 16 * 1024 * 1024:
                         print(f"🚨 Documento muy grande in {collection} for {date_str}, saltando: {doc.get("_id")}")
                         continue
