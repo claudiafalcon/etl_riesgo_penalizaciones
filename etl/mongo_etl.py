@@ -203,7 +203,6 @@ class MongoETLExtractor:
 
 
             batch_index = 0  # 🆕 contador para el nombre del archivo
-            print("que pasa")
             while True:
                 try:
                     doc = next(cursor)
