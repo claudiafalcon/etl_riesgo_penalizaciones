@@ -69,6 +69,7 @@ class MongoETLExtractor:
             ref_query = self._replace_placeholders(filter_config["filter_from_reference"], start_ms, end_ms)
             print(filter_config["reference_field"], ref_query)
             reference_ids = self.db[filter_config["reference_from"]].distinct(filter_config["reference_field"], ref_query)
+            print("Reference IDs :: ", reference_ids)
 
             if not reference_ids:
                 print(f"⚠️ No referenced IDs found for {collection}, skipping...")
