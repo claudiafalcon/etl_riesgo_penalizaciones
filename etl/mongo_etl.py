@@ -29,10 +29,38 @@ class MongoETLExtractor:
         self.db = self.client["EtominTransactions"]
         self.s3 = boto3.client("s3")
     
+    def _get_filter(self, collection):
+        try:
+            with open(f'config/{collection}_filter.json') as f:
+                return json.load(f)
+        except FileNotFoundError:
+            raise ValueError(f"❌ No filter config fi found for collection: {collection}")
+        
+    def _build_cursor_with_config(self, collection, start_ms, end_ms):
+        filter_config = self._get_filter(collection)
+        if "filter" in filter_config:
+            if any(k in filter_config for k in ["filter_from_reference", "reference_from", "reference_field"]):
+                raise ValueError(f"❌ Invalid fileter config for '{collection}': cannot mix 'filter' with reference-based fields")
+            query = json.loads(json.dumps(filter_config["filter"]).replace("__start__", str(start_ms)).replace("__end__", str(end_ms)))
+            return self.db[collection].find(query)
+
+        elif "filter_from_reference" in filter_config:
+            required_keys = {"reference_from", "reference_field"}
+            if not required_keys.issubset(filter_config):
+                raise ValueError(f"❌ Invalid config for '{collection}': missing 'reference_from' or 'reference_field'")
+
+            ref_query = json.loads(json.dumps(filter_config["filter_from_reference"]).replace("__start__", str(start_ms)).replace("__end__", str(end_ms)))
+            reference_ids = self.db[filter_config["reference_from"]].distinct(filter_config["reference_field"], ref_query)
+
+            if not reference_ids:
+                print(f"⚠️ No referenced IDs found for {collection}, skipping...")
+                return iter([])
+
+            return self.db[collection].find({"_id": {"$in": reference_ids}})
 
     def _process_batch(self, docs, collection, target_date, blacklist, batch_index):
         
-        sanitized_docs = [self.sanitize_document(doc, blacklist) for doc in docs]
+        sanitized_docs = [self._sanitize_document(doc, blacklist) for doc in docs]
     
 
         prefix = target_date.strftime("day=%d-%m-%Y")
@@ -46,10 +74,10 @@ class MongoETLExtractor:
             del content
 
         if self.output_format in ("parquet", "both"):
-            converted_docs = [self.convert_types(doc) for doc in sanitized_docs]
+            converted_docs = [self._convert_types(doc) for doc in sanitized_docs]
             df = pd.json_normalize(converted_docs)
 
-            type_config = self.get_type_overrides(collection)
+            type_config = self._get_type_overrides(collection)
             for col in type_config.get("force_string", []):
                 if col in df.columns:
                     df[col] = df[col].astype(str)
@@ -73,14 +101,14 @@ class MongoETLExtractor:
         gc.collect()
 
 
-    def get_type_overrides(self, collection):
+    def _get_type_overrides(self, collection):
         try:
             with open(f'config/{collection}_types.json') as f:
                 return json.load(f)
         except FileNotFoundError:
             return {"force_string": [], "force_number": []}
         
-    def convert_types(self, doc):
+    def _convert_types(self, doc):
         def convert_value(value):
             if isinstance(value, ObjectId):
                 return str(value)
@@ -97,14 +125,14 @@ class MongoETLExtractor:
 
 
         
-    def get_blacklist(self, collection):
+    def _get_blacklist(self, collection):
         try:
             with open(f'config/{collection}_blacklist.txt') as f:
                 return set(line.strip() for line in f if line.strip())
         except FileNotFoundError:
             return set()
 
-    def sanitize_document(self,doc, blacklist):
+    def _sanitize_document(self,doc, blacklist):
         for field in blacklist:
             keys = field.split(".")
             d = doc
@@ -130,25 +158,9 @@ class MongoETLExtractor:
 
             print(f"📦 Processing collection: {collection} for {date_str}")
             print(f"⏱ Timestamp range: {start_ms} to {end_ms}")
-            blacklist = self.get_blacklist(collection)
+            blacklist = self._get_blacklist(collection)
 
-            cursor = self.db[collection].find({
-                "$or": [
-                    {
-                        "updatedAt": {
-                            "$gte": start_ms,
-                            "$lt": end_ms
-                        }
-                    },
-                    {
-                        "updatedAt": { "$exists": False },
-                        "createdAt": {
-                            "$gte": start_ms,
-                            "$lt": end_ms
-                        }
-                    }
-                ]
-            })
+            cursor = self._build_cursor_with_config(collection,start_ms,end_ms)
             batch = []
             batch_size = 1000
             doc_count = 0

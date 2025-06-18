@@ -1,0 +1,13 @@
+{
+    "reference_from": "transactionresponse",
+    "reference_field": "seller",
+    "filter_from_reference": {
+      "$or": [
+        { "updatedAt": { "$gte": "__start__", "$lt": "__end__" } },
+        {
+          "updatedAt": { "$exists": false },
+          "createdAt": { "$gte": "__start__", "$lt": "__end__" }
+        }
+      ]
+    }
+  }

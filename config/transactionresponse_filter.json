@@ -1,0 +1,11 @@
+{
+    "filter": {
+      "$or": [
+        { "updatedAt": { "$gte": "__start__", "$lt": "__end__" } },
+        {
+          "updatedAt": { "$exists": false },
+          "createdAt": { "$gte": "__start__", "$lt": "__end__" }
+        }
+      ]
+    }
+  }
