@@ -197,7 +197,7 @@ class MongoETLExtractor:
 
 
             batch_index = 0  # 🆕 contador para el nombre del archivo
-
+            print("que pasa")
             for doc in cursor:
                 try:
                     print(f'len doc {len(bson.BSON.encode(doc))}')
