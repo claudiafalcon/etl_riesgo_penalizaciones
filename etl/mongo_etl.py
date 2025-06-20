@@ -227,6 +227,10 @@ class MongoETLExtractor:
                     doc_count += len(batch)
                     batch.clear()
                     batch_index += 1
+            
+            if batch:
+                self._process_batch(batch, collection, target_date, blacklist, batch_index)
+                doc_count += len(batch)
 
             print(f"📄 Processed {doc_count} documents in '{collection}' for {date_str}")
             cursor.close()
