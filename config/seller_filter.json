@@ -1,6 +1,7 @@
 {
     "reference_from": "transactionresponse",
     "reference_field": "seller",
+    "reference_target": "_id",
     "filter_from_reference": {
       "$or": [
         { "updatedAt": { "$gte": "__start__", "$lt": "__end__" } },
