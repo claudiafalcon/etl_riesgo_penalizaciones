@@ -16,7 +16,7 @@ if 'Contents' in response:
         if obj['LastModified'] < cutoff_date and obj['Key'].endswith('.parquet'):
             key = obj['Key']
             print(f"Borrando: {key}")
-          #  s3.delete_object(Bucket=bucket_name, Key=key)
+            s3.delete_object(Bucket=bucket_name, Key=key)
 else:
     print("No se encontraron archivos con ese prefijo.")
 
