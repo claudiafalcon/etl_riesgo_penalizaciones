@@ -14,7 +14,7 @@ response = s3.list_objects_v2(Bucket=bucket_name, Prefix=prefix)
 if "Contents" in response:
     archivos_antiguos = [
         obj['Key'] for obj in response['Contents']
-        if obj['LastModified'] < cutoff_date
+        if obj['LastModified'] < cutoff_date &  obj["Key"].endswith(".parquet")
     ]
     
     print("Archivos NO actualizados en los últimos 3 días:")
