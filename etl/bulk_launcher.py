@@ -5,9 +5,9 @@ import time
 import argparse
 from multiprocessing import Pool
 import psutil
+import json
 
-# Lista oficial de colecciones válidas
-colecciones_validas = ["transactionresponse", "sale", "seller", "chargeback", "refund"]
+
 
 # Argumentos posicionales y opcional
 parser = argparse.ArgumentParser(description="ETL launcher por lotes")
@@ -47,8 +47,17 @@ while current <= end_date:
         tasks.append((date_str, collection))
     current += timedelta(days=1)
 
+
+
+def load_collections(config_path="config/collections.json"):
+    with open(config_path) as f:
+        data = json.load(f)
+        return data.get("collections", [])
+
 # Función que corre el ETL como subprocess
 
+# Lista oficial de colecciones válidas
+colecciones_validas = load_collections()
 
 def run_etl(task):
     date_str, collection = task

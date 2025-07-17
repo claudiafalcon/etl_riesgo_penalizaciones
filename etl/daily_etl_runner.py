@@ -27,7 +27,20 @@ def main():
 
     mongo_uri = os.environ.get("MONGO_URI")
     bucket_name = os.environ.get("S3_BUCKET", "etl-riesgo-penalizaciones-data")
-    output_format = os.environ.get("OUTPUT_FORMAT", "parquet")
+
+
+
+    # Definir los formatos válidos
+    VALID_OUTPUT_FORMATS = {"json", "parquet", "both"}
+
+    # Obtener la variable de entorno o usar "parquet" por defecto
+    output_format = os.getenv("OUTPUT_FORMAT", "parquet").lower()
+
+# Validar formato
+    if output_format not in VALID_OUTPUT_FORMATS:
+        print(f"❌ Invalid OUTPUT_FORMAT: '{output_format}'. Must be one of: {', '.join(VALID_OUTPUT_FORMATS)}")
+        raise ValueError(f"❌ Invalid OUTPUT_FORMAT: '{output_format}'. Must be one of: {', '.join(VALID_OUTPUT_FORMATS)}")
+
 
     if not mongo_uri:
         raise ValueError("⚠️ MONGO_URI environment variable not set")
