@@ -94,6 +94,19 @@ class MongoETLExtractor:
 
             target_field = filter_config.get("reference_target", "_id")
             return self._paginated_cursor(collection, target_field, reference_ids)
+        elif "filterByIds" in filter_config:
+            field = filter_config["filterByIds"].get("field", "_id")
+            raw_values = filter_config["filterByIds"].get("values", [])
+
+            # Convierte a ObjectId solo si el campo es _id
+            values = [ObjectId(v) if field == "_id" else v for v in raw_values]
+
+            print(f"🔍 Filtering collection '{collection}' by {field} with {len(values)} values")
+            return self.db[collection].find({field: {"$in": values}})
+
+        else:
+            print(f"⚠️ No valid filter configuration found for '{collection}', returning empty cursor.")
+            return self.db[collection].find({"_id": {"$exists": False, "$eq": None}})
 
     def _process_batch(self, docs, collection, target_date, blacklist, batch_index):
         
