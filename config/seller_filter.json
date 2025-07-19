@@ -1,54 +1,14 @@
 {
-  "filterByIds": {
-    "field": "_id",
-    "values": [
-      "66ac113a33321d45e8ddbf03",
-      "66ac10c033321d45e8ddbef0",
-      "66ac110333321d45e8ddbef9",
-      "66ac108b33321d45e8ddbee8",
-      "658bda7dad95d8cf142c09ad",
-      "67082107262c55b3acd2d848",
-      "668c6d4e38936cf63c278b5c",
-      "685a4c1d7fe1779505d9f0e2",
-      "670821af262c55b3acd2d85b",
-      "6772d0d5eef4c822f8c633d1",
-      "66bb9a4cfeebef53d603409d",
-      "6776ae44eef4c822f8c6c369",
-      "660c28590289a700f27b08a1",
-      "679970d77aaf874e31260c96",
-      "67c5b92748054ea7a2f80784",
-      "6643a5b70600a7f160da42a3",
-      "682f3bce53fec97103e43c69",
-      "66fad7ed6dae3bcfb3427cf0",
-      "6619ea858c5d8bd7d73ecbd2",
-      "666b5e3a52b414995494e4a3",
-      "6838cba2a0f90bfd16bf9723",
-      "672bd4e90b74b3f9321cebc1",
-      "6643aad20600a7f160da42df",
-      "66cd4b39a95b8a4ab54d46a9",
-      "65ebb99d68b2efabd2f35088",
-      "66a45586488d021b0c921f1f",
-      "672bd44d0b74b3f9321cebb5",
-      "665fd671c7d0bdecaeafffb8",
-      "672bd4be0b74b3f9321cebbf",
-      "677c3b1eeef4c822f8c787bc",
-      "663446160600a7f160d9d68c",
-      "65c5a3ae6c6b1cec8bbe36be",
-      "6837407f82cab36153850b32",
-      "6643a6f10600a7f160da42b8",
-      "67082190262c55b3acd2d855",
-      "6643a7540600a7f160da42c2",
-      "665fd737c7d0bdecaeafffc7",
-      "6643a6ca0600a7f160da42b7",
-      "665fd70cc7d0bdecaeafffbe",
-      "6838cb6fa0f90bfd16bf9701",
-      "6643a6760600a7f160da42ad",
-      "672bd4880b74b3f9321cebba",
-      "65ee832368b2efabd2f353f8",
-      "681a3da26e8ffd0d9774ba0d",
-      "686d907caf4791b4f416f291",
-      "686d90dcaf4791b4f416f2c5",
-      "686d904aaf4791b4f416f27d"
-    ]
+    "reference_from": "transactionresponse",
+    "reference_field": "seller",
+    "reference_target": "_id",
+    "filter_from_reference": {
+      "$or": [
+        { "updatedAt": { "$gte": "__start__", "$lt": "__end__" } },
+        {
+          "updatedAt": { "$exists": false },
+          "createdAt": { "$gte": "__start__", "$lt": "__end__" }
+        }
+      ]
+    }
   }
-}
