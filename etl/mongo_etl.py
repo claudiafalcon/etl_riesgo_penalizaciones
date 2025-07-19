@@ -66,6 +66,7 @@ class MongoETLExtractor:
             if any(k in filter_config for k in ["filter_from_reference", "reference_from", "reference_field"]):
                 raise ValueError(f"❌ Invalid fileter config for '{collection}': cannot mix 'filter' with reference-based fields")
             query = self._replace_placeholders(filter_config["filter"], start_ms, end_ms)
+            print(f"This is the query :: '{query}'")
             return self.db[collection].find(query)
 
         elif "filter_from_reference" in filter_config:
