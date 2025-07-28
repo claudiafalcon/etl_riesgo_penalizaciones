@@ -55,12 +55,12 @@ class MongoETLExtractor:
         else:
             print("ℹ️ No se encontraron archivos para borrar.")
 
-    def _load_config(self, collection):
+    def _load_config(self):
         try:
-            with open(f"config/{collection}.json") as f:
+            with open(f"config/{self.collection}.json") as f:
                 return json.load(f)
         except FileNotFoundError:
-            raise ValueError(f"❌ Config not found for collection: {collection}")
+            raise ValueError(f"❌ Config not found for collection: {self.collection}")
 
     def _replace_placeholders(self,obj, start_ms, end_ms):
         if isinstance(obj, dict):
