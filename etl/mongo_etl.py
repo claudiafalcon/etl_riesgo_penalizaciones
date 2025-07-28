@@ -57,7 +57,7 @@ class MongoETLExtractor:
 
     def _load_config(self):
         try:
-            with open(f"config/{self.collection}.json") as f:
+            with open(f"config/{self.collection}_config.json") as f:
                 return json.load(f)
         except FileNotFoundError:
             raise ValueError(f"❌ Config not found for collection: {self.collection}")
