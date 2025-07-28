@@ -1,4 +1,6 @@
 {
+    "mode": "delta",
+    "blacklist":["terminal","processor"],
     "reference_from": "sale",
     "reference_field": "_id",
     "reference_target": "sale",
@@ -10,5 +12,9 @@
           "createdAt": { "$gte": "__start__", "$lt": "__end__" }
         }
       ]
+    },
+    "types":{
+      "force_string": ["reference"],
+      "force_number": ["amount"]
     }
   }

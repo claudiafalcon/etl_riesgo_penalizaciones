@@ -14,10 +14,13 @@ import bson
 
 
 class MongoETLExtractor:
-    def __init__(self, mongo_uri, bucket_name, output_format="parquet"):
+    def __init__(self, mongo_uri, bucket_name, collection, date_str, output_format="parquet"):
         self.mongo_uri = mongo_uri
         self.bucket_name = bucket_name
         self.output_format = output_format.lower()
+        self.date_str = date_str
+        self.collection = collection
+        self.config = self._load_config()
 
         try:
             self.client = pymongo.MongoClient(self.mongo_uri)
@@ -29,7 +32,36 @@ class MongoETLExtractor:
              
         self.db = self.client["EtominTransactions"]
         self.s3 = boto3.client("s3")
-    
+
+    def _delete_collection_data(self):
+        prefix = f"{self.collection}/"  # Borra todo lo que esté bajo este prefijo
+        print(f"🧹 Borrando todos los archivos en s3://{self.bucket_name}/{prefix} ...")
+
+        paginator = self.s3.get_paginator("list_objects_v2")
+        pages = paginator.paginate(Bucket=self.bucket_name, Prefix=prefix)
+
+        to_delete = []
+        for page in pages:
+            if "Contents" in page:
+                for obj in page["Contents"]:
+                    to_delete.append({"Key": obj["Key"]})
+
+        if to_delete:
+            # Borrado en bloques de hasta 1000 objetos (límite de AWS)
+            for i in range(0, len(to_delete), 1000):
+                chunk = to_delete[i:i+1000]
+                self.s3.delete_objects(Bucket=self.bucket_name, Delete={"Objects": chunk})
+            print(f"✅ {len(to_delete)} objetos eliminados.")
+        else:
+            print("ℹ️ No se encontraron archivos para borrar.")
+
+    def _load_config(self, collection):
+        try:
+            with open(f"config/{collection}.json") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            raise ValueError(f"❌ Config not found for collection: {collection}")
+
     def _replace_placeholders(self,obj, start_ms, end_ms):
         if isinstance(obj, dict):
             return {
@@ -46,12 +78,7 @@ class MongoETLExtractor:
         return obj
 
 
-    def _get_filter(self, collection):
-        try:
-            with open(f'config/{collection}_filter.json') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            raise ValueError(f"❌ No filter config fi found for collection: {collection}")
+
     def _paginated_cursor(self, collection, target_field, reference_ids, chunk_size=10000):
         for i in range(0, len(reference_ids), chunk_size):
             chunk = reference_ids[i:i + chunk_size]
@@ -59,20 +86,26 @@ class MongoETLExtractor:
             for doc in self.db[collection].find({target_field: {"$in": chunk}}):
                 yield doc
             
-    def _build_cursor_with_config(self, collection, start_ms, end_ms):
-        filter_config = self._get_filter(collection)
+    def _build_cursor_with_config(self, start_ms, end_ms):
+        mode = self.config.get("mode","delta")
+        if mode == "replace":
+            print(f"🧹 Mode is 'replace' → extracting entire collection '{self.collection}' in chunks")
+            return self._paginated_cursor(self.collection, "_id", self._get_all_ids())
+        
+    # Si es delta, procesamos los filtros como antes
+        filter_config = self.conf
 
         if "filter" in filter_config:
             if any(k in filter_config for k in ["filter_from_reference", "reference_from", "reference_field"]):
-                raise ValueError(f"❌ Invalid fileter config for '{collection}': cannot mix 'filter' with reference-based fields")
+                raise ValueError(f"❌ Invalid fileter config for '{self.collection}': cannot mix 'filter' with reference-based fields")
             query = self._replace_placeholders(filter_config["filter"], start_ms, end_ms)
             print(f"This is the query :: '{query}'")
-            return self.db[collection].find(query)
+            return self.db[self.collection].find(query)
 
         elif "filter_from_reference" in filter_config:
             required_keys = {"reference_from", "reference_field"}
             if not required_keys.issubset(filter_config):
-                raise ValueError(f"❌ Invalid config for '{collection}': missing 'reference_from' or 'reference_field'")
+                raise ValueError(f"❌ Invalid config for '{self.collection}': missing 'reference_from' or 'reference_field'")
 
             ref_query = self._replace_placeholders(filter_config["filter_from_reference"], start_ms, end_ms)
             print(filter_config["reference_field"], ref_query)
@@ -89,11 +122,11 @@ class MongoETLExtractor:
             reference_ids = [doc["_id"] for doc in self.db[reference_from].aggregate(pipeline)]
 
             if not reference_ids:
-                print(f"⚠️ No referenced IDs found for {collection}, skipping...")
-                return self.db[collection].find({"_id": {"$exists": False, "$eq": None}})
+                print(f"⚠️ No referenced IDs found for {self.collection}, skipping...")
+                return self.db[self.collection].find({"_id": {"$exists": False, "$eq": None}})
 
             target_field = filter_config.get("reference_target", "_id")
-            return self._paginated_cursor(collection, target_field, reference_ids)
+            return self._paginated_cursor(self.collection, target_field, reference_ids)
         elif "filterByIds" in filter_config:
             field = filter_config["filterByIds"].get("field", "_id")
             raw_values = filter_config["filterByIds"].get("values", [])
@@ -101,12 +134,12 @@ class MongoETLExtractor:
             # Convierte a ObjectId solo si el campo es _id
             values = [ObjectId(v) if field == "_id" else v for v in raw_values]
 
-            print(f"🔍 Filtering collection '{collection}' by {field} with {len(values)} values")
-            return self.db[collection].find({field: {"$in": values}})
+            print(f"🔍 Filtering collection '{self.collection}' by {field} with {len(values)} values")
+            return self.db[self.collection].find({field: {"$in": values}})
 
         else:
-            print(f"⚠️ No valid filter configuration found for '{collection}', returning empty cursor.")
-            return self.db[collection].find({"_id": {"$exists": False, "$eq": None}})
+            print(f"⚠️ No valid filter configuration found for '{self.collection}', returning empty cursor.")
+            return self.db[self.collection].find({"_id": {"$exists": False, "$eq": None}})
 
     def _process_batch(self, docs, collection, target_date, blacklist, batch_index):
         
@@ -127,7 +160,7 @@ class MongoETLExtractor:
             converted_docs = [self._convert_types(doc) for doc in sanitized_docs]
             df = pd.json_normalize(converted_docs)
 
-            type_config = self._get_type_overrides(collection)
+            type_config = self.config("types",{})
             for col in type_config.get("force_string", []):
                 if col in df.columns:
                     df[col] = df[col].astype(str)
@@ -151,12 +184,7 @@ class MongoETLExtractor:
         gc.collect()
 
 
-    def _get_type_overrides(self, collection):
-        try:
-            with open(f'config/{collection}_types.json') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return {"force_string": [], "force_number": []}
+
         
     def _convert_types(self, doc):
         def convert_value(value):
@@ -195,22 +223,22 @@ class MongoETLExtractor:
                 d.pop(keys[-1], None)
         return doc
     
-    def extract_and_upload(self, collection, date_str):
+    def extract_and_upload(self, date_str=None):
         from time import time
         try:
             start = time()
-
+            date_str = date_str or self.date_str
             target_date = datetime.strptime(date_str, "%Y-%m-%d")
             next_day = target_date + timedelta(days=1)
             start_ms = int(target_date.replace(tzinfo=timezone.utc).timestamp() * 1000)
             end_ms = int(next_day.replace(tzinfo=timezone.utc).timestamp() * 1000)
-
-
-            print(f"📦 Processing collection: {collection} for {date_str}")
+            if self.config.get("mode", "delta") == "replace":
+                self._delete_collection_data()
+            print(f"📦 Processing collection: {self.collection} for {date_str}")
             print(f"⏱ Timestamp range: {start_ms} to {end_ms}")
-            blacklist = self._get_blacklist(collection)
+            blacklist = self.config.get("blacklist", [])
 
-            cursor = self._build_cursor_with_config(collection,start_ms,end_ms)
+            cursor = self._build_cursor_with_config(start_ms,end_ms)
             batch = []
             batch_size = 1000
             doc_count = 0
@@ -229,7 +257,7 @@ class MongoETLExtractor:
                 try:
                     size = len(bson.BSON.encode(doc))
                     if size > 16 * 1024 * 1024:
-                        print(f"🚨 Documento muy grande en {collection} para {date_str}, saltando: {doc.get('_id')}")
+                        print(f"🚨 Documento muy grande en {self.collection} para {date_str}, saltando: {doc.get('_id')}")
                         continue
                 except Exception as e:
                     print("❌ Error al revisar tamaño del documento:", e)
@@ -237,16 +265,16 @@ class MongoETLExtractor:
 
                 batch.append(doc)
                 if len(batch) >= batch_size:
-                    self._process_batch(batch, collection, target_date, blacklist, batch_index)
+                    self._process_batch(batch, self.collection, target_date, blacklist, batch_index)
                     doc_count += len(batch)
                     batch.clear()
                     batch_index += 1
             
             if batch:
-                self._process_batch(batch, collection, target_date, blacklist, batch_index)
+                self._process_batch(batch, self.collection, target_date, blacklist, batch_index)
                 doc_count += len(batch)
 
-            print(f"📄 Processed {doc_count} documents in '{collection}' for {date_str}")
+            print(f"📄 Processed {doc_count} documents in '{self.collection}' for {date_str}")
             cursor.close()
             del cursor
 
@@ -276,7 +304,7 @@ class MongoETLExtractor:
                     except Exception:
                         pass
 
-            print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds for {collection}/{target_date.strftime('day=%d-%m-%Y')}")
+            print(f"⏱️ Elapsed time: {round(time() - start, 2)} seconds for {self.collection}/{target_date.strftime('day=%d-%m-%Y')}")
             log_large_objects(min_size_mb=1)
             mem = psutil.virtual_memory()
         

@@ -15,7 +15,9 @@ if __name__ == "__main__":
     extractor = MongoETLExtractor(
         mongo_uri=os.environ["MONGO_URI"],
         bucket_name=os.environ.get("S3_BUCKET", "etl-riesgo-penalizaciones-data"),
+        coleccion = collection,
+        date_str = date_str,
         output_format=os.environ.get("OUTPUT_FORMAT", "parquet")
     )
 
-    extractor.extract_and_upload(collection, date_str)
+    extractor.extract_and_upload()

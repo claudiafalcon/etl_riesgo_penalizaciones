@@ -1,0 +1,4 @@
+{
+  "mode": "replace",
+  "blacklist": ["params.publicKey","params.secretKey","paramsTest.publicKey","paramsTest.secretKey","params.tokenCardRequest","params.chargeRequest","params.refundRequest","params.voidRequest","paramsTest.tokenCardRequest","paramsTest.chargeRequest","paramsTest.refundRequest","paramsTest.voidRequest"]
+}

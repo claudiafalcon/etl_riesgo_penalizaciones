@@ -1,4 +1,6 @@
 {
+    "mode": "delta",
+    "blacklist":["cardNumber","customerEmail"],
     "reference_from": "sale",
     "reference_field": "_id",
     "reference_target": "sale",
@@ -10,5 +12,9 @@
           "createdAt": { "$gte": "__start__", "$lt": "__end__" }
         }
       ]
+    },
+    "types":{
+      "force_string": [ "transactionId", "reference"],
+      "force_number": ["amount"]
     }
   }

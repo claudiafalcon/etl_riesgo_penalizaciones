@@ -46,9 +46,9 @@ def main():
         raise ValueError("⚠️ MONGO_URI environment variable not set")
  
  
-    extractor = MongoETLExtractor(mongo_uri, bucket_name,output_format)
+    extractor = MongoETLExtractor(mongo_uri, bucket_name,args.collection, args.date, output_format)
     start_time = time.time()
-    extractor.extract_and_upload(args.collection, args.date)
+    extractor.extract_and_upload()
     end_time = time.time()
     log_duration(start_time, end_time,args.collection, args.date)
 
