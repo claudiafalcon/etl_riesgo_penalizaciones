@@ -79,6 +79,7 @@ class MongoETLExtractor:
 
 
 
+
     def _paginated_cursor(self, collection, target_field, reference_ids, chunk_size=10000):
         for i in range(0, len(reference_ids), chunk_size):
             chunk = reference_ids[i:i + chunk_size]
@@ -90,7 +91,7 @@ class MongoETLExtractor:
         mode = self.config.get("mode","delta")
         if mode == "replace":
             print(f"🧹 Mode is 'replace' → extracting entire collection '{self.collection}' in chunks")
-            return self._paginated_cursor(self.collection, "_id", self._get_all_ids())
+            return self.db[self.collection].find({})
         
     # Si es delta, procesamos los filtros como antes
         filter_config = self.conf
