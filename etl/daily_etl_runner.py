@@ -18,11 +18,17 @@ def log_duration(start, end, collection, date):
     duration = end - start
     print(f"🕒 Daily ETL  {collection} for {date} finished in {duration:.2f} seconds")
 
+def load_collections(config_path="config/collections.json"):
+    with open(config_path) as f:
+        data = json.load(f)
+        return data.get("collections", [])
+
 def main():
 
     parser = argparse.ArgumentParser(description="Extract one collection from MongoDB and upload to S3.")
+    colecciones_validas = load_collections()
     parser.add_argument("--date", required=True, help="Extraction date in format YYYY-MM-DD")
-    parser.add_argument("--collection", required=True, choices=["transactionresponse", "sale", "seller","refund","chargeback"], help="Collection to extract")
+    parser.add_argument("--collection", required=True, choices=colecciones_validas, help="Collection to extract")
     args = parser.parse_args()
 
     mongo_uri = os.environ.get("MONGO_URI")
