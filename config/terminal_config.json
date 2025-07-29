@@ -1,4 +1,19 @@
 {
   "mode": "replace",
-  "blacklist": ["params.publicKey","params.secretKey","paramsTest.publicKey","paramsTest.secretKey","params.tokenCardRequest","params.chargeRequest","params.refundRequest","params.voidRequest","paramsTest.tokenCardRequest","paramsTest.chargeRequest","paramsTest.refundRequest","paramsTest.voidRequest"]
+  "blacklist": ["params.publicKey","params.secretKey","paramsTest.publicKey","paramsTest.secretKey","params.tokenCardRequest","params.chargeRequest","params.refundRequest","params.voidRequest","paramsTest.tokenCardRequest","paramsTest.chargeRequest","paramsTest.refundRequest","paramsTest.voidRequest", "params.requestIv",
+      "params.requestKey",
+      "params.signatureIV",
+      "params.signatureKEY",
+      "params.responseIv",
+      "params.responseKey",
+      "params.responseSignatureIV",
+      "params.responseSignatureKEY",
+      "params.userId",
+      "paramsTest.signatureKEY",
+      "paramsTest.requestIv",
+      "paramsTest.requestKey",
+      "paramsTest.userId"]
 }
+
+
+     
