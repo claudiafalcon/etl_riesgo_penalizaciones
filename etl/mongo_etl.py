@@ -161,7 +161,7 @@ class MongoETLExtractor:
             converted_docs = [self._convert_types(doc) for doc in sanitized_docs]
             df = pd.json_normalize(converted_docs)
 
-            type_config = self.config("types",{})
+            type_config = self.config.get("types",{})
             for col in type_config.get("force_string", []):
                 if col in df.columns:
                     df[col] = df[col].astype(str)
